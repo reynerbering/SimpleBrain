@@ -1,6 +1,6 @@
 # My Second Brain
 
-I dump raw stuff into `/raw`. AI turns it into clean notes in `/wiki`. That's it.
+I am a Senior Software Developer and I focus mostly on Backend Engineering. 
 
 ## Folders
 
@@ -9,7 +9,7 @@ I dump raw stuff into `/raw`. AI turns it into clean notes in `/wiki`. That's it
 - `/projects` — active work, one folder per project, each with its own README
 - `/archive` — processed `/raw` files land here so I can see what's been handled
 
-## The Loop
+## The Loopl
 
 1. Write or drop anything into `/raw`.
 2. Run an AI agent with the prompt in `translate.md`.
