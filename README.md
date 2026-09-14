@@ -1,7 +1,3 @@
-# My Second Brain
-
-I dump raw stuff into `/raw`. AI turns it into clean notes in `/wiki`. That's it.
-
 ## Folders
 
 - `/raw` — anything I capture: notes, PDFs, screenshots, links
@@ -11,14 +7,6 @@ I dump raw stuff into `/raw`. AI turns it into clean notes in `/wiki`. That's it
 - `/prompts` — standing prompts run against the vault
 - `/tickets` — one file per Jira ticket
 - `/skills` — versioned source of truth for my Claude Code skills
-
-## The Loop
-
-1. Write or drop anything into `/raw`.
-2. Run an AI agent with the prompt in `prompts/translate.md`.
-3. Read the updated `/wiki`.
-
-The whole folder is a git repo, so nothing is ever lost.
 
 ## The Workflow
 
@@ -67,43 +55,52 @@ All checked out under `C:\JT Repositories`. Two teams, two Jira projects.
 
 GitLab paths below were read from each repo's `git config remote.origin.url` on 2026-09-15. Tech stacks were read from manifests on disk. Neither was guessed.
 
+**Type** is one of four values — API and Lambda alone did not cover the set:
+
+- **API** — an HTTP service. Deployed as a container or long-running process.
+- **Lambda** — an event-driven AWS function. No HTTP surface of its own.
+- **Web app** — server-rendered UI. `hosted-apply` has 26 page templates; the Laravel pair render Blade views.
+- **Frontend** — browser-side only. The two Stencil repos ship web components, not a server.
+
+Assigned on evidence: presence of `swagger.json`, count of non-error view templates, Lambda packaging (Terraform / SAM / Serverless), and project SDK type.
+
 ### CBS — Core Business Services (Jira key: `CBS`)
 
 Note: these five are **not** in one GitLab group. They span `platform/core-api` and two `core-systems` subgroups.
 
-| Local folder | Name | GitLab path | Tech stack |
-| --- | --- | --- | --- |
-| `CoreAPI` | Core API | `jobtarget/platform/core-api/CoreAPI` | .NET 6 · ASP.NET Core web API · EF Core + MSSQL/DynamoDB/Redis · NUnit · Docker · 13 projects |
-| `close-job-lambda` | Close Job Lambda | `jobtarget/core-systems/jobs-domain/close-job-lambda` | Node 20 · TypeScript · AWS Lambda · Terraform · Jest |
-| `ea-distribution-update` | EA Distribution Update | `jobtarget/platform/core-api/ea-distribution-update` | Node 24 · TypeScript · AWS Lambda · AWS SAM · Jest |
-| `stop-job-postings-lambda` | Stop Job Postings Lambda | `jobtarget/core-systems/postingdomain/stop-job-postings-lambda` | Node 24 · TypeScript · AWS Lambda · Terraform · Jest |
-| `call-distribution-update-lambda` | Call Distribution Update Lambda | `jobtarget/platform/core-api/call-distribution-update-lambda` | Node 18 · TypeScript · AWS Lambda · Serverless Framework · **no tests** |
+| Local folder | Name | Type | GitLab path | Tech stack |
+| --- | --- | --- | --- | --- |
+| `CoreAPI` | Core API | **API** | `jobtarget/platform/core-api/CoreAPI` | .NET 6 · ASP.NET Core web API · EF Core + MSSQL/DynamoDB/Redis · NUnit · Docker · 13 projects |
+| `close-job-lambda` | Close Job Lambda | **Lambda** | `jobtarget/core-systems/jobs-domain/close-job-lambda` | Node 20 · TypeScript · AWS Lambda · Terraform · Jest |
+| `ea-distribution-update` | EA Distribution Update | **Lambda** | `jobtarget/platform/core-api/ea-distribution-update` | Node 24 · TypeScript · AWS Lambda · AWS SAM · Jest |
+| `stop-job-postings-lambda` | Stop Job Postings Lambda | **Lambda** | `jobtarget/core-systems/postingdomain/stop-job-postings-lambda` | Node 24 · TypeScript · AWS Lambda · Terraform · Jest |
+| `call-distribution-update-lambda` | Call Distribution Update Lambda | **Lambda** | `jobtarget/platform/core-api/call-distribution-update-lambda` | Node 18 · TypeScript · AWS Lambda · Serverless Framework · **no tests** |
 
 ### AS — Apply Systems (Jira key: `AS`)
 
 All 19 remotes verified against the expected paths — every one matched.
 
-| Local folder | Name | GitLab path | Tech stack |
-| --- | --- | --- | --- |
-| `clickapply` | ClickApply | `jobtarget/apps/clickapply` | Node 24 · **Sails.js 1.5** · JS · Mocha · Docker |
-| `hosted-apply` | Hosted Apply | `jobtarget/apps/hosted-apply` | Node 20+ · **Sails.js 1.5** · JS · Mocha + nyc · Docker · pm2 · has own `CLAUDE.md` |
-| `cloud-lookup-api` | Posting Reference Lookup API | `jobtarget/apps/apply-systems/cloud-lookup-api` | Node 16 · **Sails.js 1.5** · JS · Mocha · Docker |
-| `apply-with-jobtarget-api` | Apply With JobTarget API | `jobtarget/apps/apply-systems/apply-with-jobtarget-api` | Node 18 · **Sails.js 1.5** · JS · Mocha · Docker |
-| `apply-with-jobtarget-widget` | Apply With JobTarget Widget | `jobtarget/apps/apply-systems/apply-with-jobtarget-widget` | TypeScript 5 · **Stencil 4** web components · Jest |
-| `apply-with-jobtarget-config-ui` | Apply With JobTarget Config UI | `jobtarget/apps/apply-systems/apply-with-jobtarget-config-ui` | TypeScript · **Stencil 2** SPA · Jest · Docker/nginx |
-| `recruitsite-02` | RecruitSite 2.0 | `jobtarget/marketing/recruitsite-02` | **PHP 8 · Laravel 9** · Livewire 2 · Vite + Tailwind + Alpine · PHPUnit · Docker · has own `CLAUDE.md` |
-| `recruitsite-02-configuration-app` | RecruitSite 2.0 Configuration App | `jobtarget/marketing/recruitsite-02-configuration-app` | **PHP 8.1 · Laravel 9** · Livewire 2 · Vite + Tailwind · PHPUnit · Docker |
-| `recruit-site-job-notification-lambda` | Recruit Site Job Notification Lambda | `jobtarget/marketing/recruit-site-job-notification-lambda` | **.NET 8** · AWS Lambda (SQS-triggered) · Serverless Framework · xUnit |
-| `jobapplicationapi` | JobApplicationAPI | `jobtarget/core-systems/applications/jobapplicationapi` | TypeScript 5 · **Express + tsoa** · Jest · Docker · no lockfile committed |
-| `analytics-api` | analytics-api | `jobtarget/apps/apply-systems/analytics-api` | **.NET 10** · ASP.NET Core API · MongoDB · Docker · **no tests** |
-| `questionnaire-api` | Questionnaire Api | `jobtarget/apps/apply-systems/questionnaire-api` | **.NET 8** · ASP.NET Core API · MSSQL · Docker · preview packages · **no tests** |
-| `disposition-formatter-lambda` | Disposition Formatter Lambda | `jobtarget/apps/apply-systems/disposition-formatter-lambda` | Node 22 · JS · AWS Lambda · Terraform · EventBridge · **no tests** |
-| `disposition-transmitter-lambda` | Disposition Transmitter Lambda | `jobtarget/apps/apply-systems/disposition-transmitter-lambda` | Node 22 · JS · AWS Lambda · Terraform · GraphQL · **no tests** |
-| `disposition-listener-lambda` | Disposition Listener Lambda | `jobtarget/apps/apply-systems/disposition-listener-lambda` | Node 22 · JS · AWS Lambda · Terraform · **no lockfile** · **no tests** |
-| `enrichment-manager-lambda` | Enrichment Manager Lambda | `jobtarget/apps/apply-systems/enrichment-manager-lambda` | Node 22 · JS · AWS Lambda · Terraform · aws-sdk **v2** · **no tests** |
-| `delivery-manager-lambda` | Delivery Manager Lambda | `jobtarget/apps/apply-systems/delivery-manager-lambda` | Node 22 · JS · AWS Lambda · Terraform · MongoDB · **no tests** |
-| `verification-manager-lambda` | Verification Manager Lambda | `jobtarget/apps/apply-systems/verification-manager-lambda` | Node 22 · JS · AWS Lambda · Terraform · aws-sdk **v2** · **no tests** |
-| `interview-reminder-email` | Interview Reminder Email | `jobtarget/apps/apply-systems/interview-reminder-email` | Node 22 · JS · AWS Lambda · Terraform · aws-sdk **v2** · **no tests** |
+| Local folder | Name | Type | GitLab path | Tech stack |
+| --- | --- | --- | --- | --- |
+| `clickapply` | ClickApply | **API** | `jobtarget/apps/clickapply` | Node 24 · **Sails.js 1.5** · JS · Mocha · Docker |
+| `hosted-apply` | Hosted Apply | **Web app** | `jobtarget/apps/hosted-apply` | Node 20+ · **Sails.js 1.5** · JS · Mocha + nyc · Docker · pm2 · has own `CLAUDE.md` |
+| `cloud-lookup-api` | Posting Reference Lookup API | **API** | `jobtarget/apps/apply-systems/cloud-lookup-api` | Node 16 · **Sails.js 1.5** · JS · Mocha · Docker |
+| `apply-with-jobtarget-api` | Apply With JobTarget API | **API** | `jobtarget/apps/apply-systems/apply-with-jobtarget-api` | Node 18 · **Sails.js 1.5** · JS · Mocha · Docker |
+| `apply-with-jobtarget-widget` | Apply With JobTarget Widget | **Frontend** | `jobtarget/apps/apply-systems/apply-with-jobtarget-widget` | TypeScript 5 · **Stencil 4** web components · Jest |
+| `apply-with-jobtarget-config-ui` | Apply With JobTarget Config UI | **Frontend** | `jobtarget/apps/apply-systems/apply-with-jobtarget-config-ui` | TypeScript · **Stencil 2** SPA · Jest · Docker/nginx |
+| `recruitsite-02` | RecruitSite 2.0 | **Web app** | `jobtarget/marketing/recruitsite-02` | **PHP 8 · Laravel 9** · Livewire 2 · Vite + Tailwind + Alpine · PHPUnit · Docker · has own `CLAUDE.md` |
+| `recruitsite-02-configuration-app` | RecruitSite 2.0 Configuration App | **Web app** | `jobtarget/marketing/recruitsite-02-configuration-app` | **PHP 8.1 · Laravel 9** · Livewire 2 · Vite + Tailwind · PHPUnit · Docker |
+| `recruit-site-job-notification-lambda` | Recruit Site Job Notification Lambda | **Lambda** | `jobtarget/marketing/recruit-site-job-notification-lambda` | **.NET 8** · AWS Lambda (SQS-triggered) · Serverless Framework · xUnit |
+| `jobapplicationapi` | JobApplicationAPI | **API** | `jobtarget/core-systems/applications/jobapplicationapi` | TypeScript 5 · **Express + tsoa** · Jest · Docker · no lockfile committed |
+| `analytics-api` | analytics-api | **API** | `jobtarget/apps/apply-systems/analytics-api` | **.NET 10** · ASP.NET Core API · MongoDB · Docker · **no tests** |
+| `questionnaire-api` | Questionnaire Api | **API** | `jobtarget/apps/apply-systems/questionnaire-api` | **.NET 8** · ASP.NET Core API · MSSQL · Docker · preview packages · **no tests** |
+| `disposition-formatter-lambda` | Disposition Formatter Lambda | **Lambda** | `jobtarget/apps/apply-systems/disposition-formatter-lambda` | Node 22 · JS · AWS Lambda · Terraform · EventBridge · **no tests** |
+| `disposition-transmitter-lambda` | Disposition Transmitter Lambda | **Lambda** | `jobtarget/apps/apply-systems/disposition-transmitter-lambda` | Node 22 · JS · AWS Lambda · Terraform · GraphQL · **no tests** |
+| `disposition-listener-lambda` | Disposition Listener Lambda | **Lambda** | `jobtarget/apps/apply-systems/disposition-listener-lambda` | Node 22 · JS · AWS Lambda · Terraform · **no lockfile** · **no tests** |
+| `enrichment-manager-lambda` | Enrichment Manager Lambda | **Lambda** | `jobtarget/apps/apply-systems/enrichment-manager-lambda` | Node 22 · JS · AWS Lambda · Terraform · aws-sdk **v2** · **no tests** |
+| `delivery-manager-lambda` | Delivery Manager Lambda | **Lambda** | `jobtarget/apps/apply-systems/delivery-manager-lambda` | Node 22 · JS · AWS Lambda · Terraform · MongoDB · **no tests** |
+| `verification-manager-lambda` | Verification Manager Lambda | **Lambda** | `jobtarget/apps/apply-systems/verification-manager-lambda` | Node 22 · JS · AWS Lambda · Terraform · aws-sdk **v2** · **no tests** |
+| `interview-reminder-email` | Interview Reminder Email | **Lambda** | `jobtarget/apps/apply-systems/interview-reminder-email` | Node 22 · JS · AWS Lambda · Terraform · aws-sdk **v2** · **no tests** |
 
 ### Test readiness — read before any pipeline run
 
