@@ -5,6 +5,7 @@
 - `/archive` — processed `/raw` files land here so I can see what's been handled
 - `/coding` — engineering notes and reusable orchestration prompts
 - `/prompts` — standing prompts run against the vault
+- `/templates` — Obsidian templates for a design doc and a ticket
 - `/tickets` — one file per Jira ticket
 - `/skills` — versioned source of truth for my Claude Code skills
 
@@ -44,6 +45,17 @@ The agreed document is the input. Now it gets built.
 | Pipeline handoffs | `.pipeline/` in the repo | Scratch. Gitignored. Not a record. |
 
 The wiki doc owns the **decisions**. The ticket owns the **log**. They link to each other and neither repeats the other.
+
+### Finding things later
+
+Both folders carry an Obsidian **Base** — a saved live query that groups notes without moving them into folders. A doc touching three repos shows up under all three.
+
+| Base | Views |
+| --- | --- |
+| `wiki/design-docs.base` | By repo, By team, By status, Open questions |
+| `tickets/tickets.base` | By status, By team, By repo |
+
+These read the frontmatter, so the properties are the contract — see the protocols in [CLAUDE.md](CLAUDE.md). A doc with no `repos:` is invisible to the By-repo view.
 
 ## Repos
 

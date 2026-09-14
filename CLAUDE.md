@@ -26,6 +26,7 @@ Read `README.md` for the folder model. This file is the source of truth for *how
 | `/archive` | Processed `/raw` files land here. Permanent, immutable record. |
 | `/coding` | Engineering notes **and** reusable orchestration prompts/workflows for multi-step coding tasks. |
 | `/prompts` | Standing prompts run against the vault (e.g. `translate.md`). |
+| `/templates` | Obsidian templates for a design doc and a ticket. Set as the Templates plugin folder. |
 | `/tickets` | One file per Jira ticket. See the ticket protocol below. |
 | `/skills` | Versioned source of truth for personal Claude Code skills. Installed to `~/.claude/skills` by `skills/install.ps1`. |
 | `/user-memory` | Template for `~/.claude/CLAUDE.md`, the user-level memory that imports this vault into every repo. Installed by `user-memory/install.ps1`. |
@@ -50,10 +51,10 @@ Read `README.md` for the folder model. This file is the source of truth for *how
 
 All coding work runs in two phases, in order. Never start Phase 2 without a Phase 1 document.
 
-| Phase | What happens | Tool | Output |
-| --- | --- | --- | --- |
-| 1 — Decide | Relentless interview until Neru and the agent share an understanding | `/grill-me`, `/grill-with-docs`, `/grilling` | `/wiki/<KEY>-<slug>.md` |
-| 2 — Build | Planner → Coder → Tester → Reviewer | `/ship` | code on a branch + `/tickets/<KEY>.md` entry |
+| Phase      | What happens                                                         | Tool                                         | Output                                       |
+| ---------- | -------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------- |
+| 1 — Decide | Relentless interview until Neru and the agent share an understanding | `/grill-me`, `/grill-with-docs`, `/grilling` | `/wiki/<KEY>-<slug>.md`                      |
+| 2 — Build  | Planner → Coder → Tester → Reviewer                                  | `/ship`                                      | code on a branch + `/tickets/<KEY>.md` entry |
 
 - **Phase 1 is not optional for non-trivial work.** If asked to implement something with no design doc, say so and offer to grill it first.
 - **Phase 2 reads Phase 1.** Hand the Planner the design doc, not a one-line restatement of the ask.
@@ -91,7 +92,18 @@ All coding work runs in two phases, in order. Never start Phase 2 without a Phas
 **Template:**
 
 ```markdown
-# PROJ-1234 — <short title>
+---
+type: design-doc
+ticket: CBS-1234
+team: CBS
+status: decided
+repos:
+  - CoreAPI
+grilled: YYYY-MM-DD
+updated: YYYY-MM-DD
+---
+
+# CBS-1234 — <short title>
 
 - **Status:** decided | in progress | implemented | superseded
 - **Ticket:** [[tickets/PROJ-1234.md]]
@@ -179,7 +191,18 @@ All coding work runs in two phases, in order. Never start Phase 2 without a Phas
 **Template:**
 
 ```markdown
-# PROJ-1234 — <ticket title>
+---
+type: ticket
+ticket: CBS-1234
+team: CBS
+status: In Progress
+source: jira
+repos:
+  - CoreAPI
+updated: YYYY-MM-DD
+---
+
+# CBS-1234 — <ticket title>
 
 - **Status:** <status> (<source: jira | unverified>)
 - **Design:** [[wiki/PROJ-1234-<slug>.md]]
@@ -204,6 +227,28 @@ All coding work runs in two phases, in order. Never start Phase 2 without a Phas
 **Blockers / Open questions**
 - ...
 ```
+
+---
+
+## Frontmatter Contract
+
+The Bases in `wiki/design-docs.base` and `tickets/tickets.base` read these properties. A missing property means the note silently drops out of a view — so treat them as required, not decorative.
+
+| Property | Applies to | Values |
+| --- | --- | --- |
+| `type` | both | `design-doc` or `ticket` |
+| `ticket` | both | `CBS-1234` or `AS-5678`. Never `APPSYS-*`. |
+| `team` | both | `CBS` or `AS` |
+| `status` | design doc | `decided`, `in progress`, `implemented`, `superseded` |
+| `status` | ticket | the Jira status string |
+| `source` | ticket | `jira` or `unverified` |
+| `repos` | both | list of **exact on-disk folder names** from the README repo tables |
+| `grilled` | design doc | date of the Phase 1 session |
+| `updated` | both | date of the last edit — bump it every session |
+
+- **`repos` is a list, always** — even for a single repo. A string breaks the By-repo grouping.
+- Use the on-disk folder name verbatim: `CoreAPI` (PascalCase), `ea-distribution-update`, `apply-with-jobtarget-api`. Not the GitLab path, not the display name.
+- A repo not listed in `README.md` has no assigned team. Ask before inventing one.
 
 ---
 

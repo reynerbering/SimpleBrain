@@ -1,0 +1,28 @@
+filters:
+  and:
+    - type == "ticket"
+views:
+  - type: table
+    name: By status
+    order:
+      - file.name
+      - team
+      - repos
+      - updated
+    group_by: status
+  - type: table
+    name: By team
+    order:
+      - file.name
+      - status
+      - repos
+      - updated
+    group_by: team
+  - type: table
+    name: By repo
+    order:
+      - file.name
+      - status
+      - team
+      - updated
+    group_by: repos

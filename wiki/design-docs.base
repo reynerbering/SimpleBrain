@@ -1,0 +1,40 @@
+filters:
+  and:
+    - type == "design-doc"
+views:
+  - type: table
+    name: By repo
+    order:
+      - file.name
+      - status
+      - team
+      - ticket
+      - updated
+    group_by: repos
+  - type: table
+    name: By team
+    order:
+      - file.name
+      - status
+      - repos
+      - updated
+    group_by: team
+  - type: table
+    name: By status
+    order:
+      - file.name
+      - team
+      - repos
+      - updated
+    group_by: status
+  - type: table
+    name: Open questions
+    filters:
+      and:
+        - status != "implemented"
+    order:
+      - file.name
+      - status
+      - team
+      - repos
+      - grilled
