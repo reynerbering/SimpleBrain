@@ -63,41 +63,61 @@ All checked out under `C:\JT Repositories`. Two teams, two Jira projects.
 
 **Jira keys are the source of truth for ticket and design-doc filenames** — `CBS-1234.md`, `AS-5678.md`. Never write `APPSYS-*`; that key does not exist in Jira.
 
-**The `repos:` property uses the local folder name, exactly as it appears on disk.** Lowercase, hyphenated, no GitLab path. That keeps it greppable and unambiguous.
+**The `repos:` property uses the local folder name, exactly as on disk.** Lowercase, hyphenated, no GitLab path.
+
+GitLab paths below were read from each repo's `git config remote.origin.url` on 2026-09-15. Tech stacks were read from manifests on disk. Neither was guessed.
 
 ### CBS — Core Business Services (Jira key: `CBS`)
 
-| Local folder | GitLab path |
-| --- | --- |
-| `CoreAPI` | _not recorded_ |
-| `close-job-lambda` | _not recorded_ |
-| `ea-distribution-update` | _not recorded_ |
-| `stop-job-postings-lambda` | _not recorded_ |
-| `call-distribution-update-lambda` | _not recorded_ |
+Note: these five are **not** in one GitLab group. They span `platform/core-api` and two `core-systems` subgroups.
+
+| Local folder | Name | GitLab path | Tech stack |
+| --- | --- | --- | --- |
+| `CoreAPI` | Core API | `jobtarget/platform/core-api/CoreAPI` | .NET 6 · ASP.NET Core web API · EF Core + MSSQL/DynamoDB/Redis · NUnit · Docker · 13 projects |
+| `close-job-lambda` | Close Job Lambda | `jobtarget/core-systems/jobs-domain/close-job-lambda` | Node 20 · TypeScript · AWS Lambda · Terraform · Jest |
+| `ea-distribution-update` | EA Distribution Update | `jobtarget/platform/core-api/ea-distribution-update` | Node 24 · TypeScript · AWS Lambda · AWS SAM · Jest |
+| `stop-job-postings-lambda` | Stop Job Postings Lambda | `jobtarget/core-systems/postingdomain/stop-job-postings-lambda` | Node 24 · TypeScript · AWS Lambda · Terraform · Jest |
+| `call-distribution-update-lambda` | Call Distribution Update Lambda | `jobtarget/platform/core-api/call-distribution-update-lambda` | Node 18 · TypeScript · AWS Lambda · Serverless Framework · **no tests** |
 
 ### AS — Apply Systems (Jira key: `AS`)
 
-| Local folder | Name | GitLab path |
-| --- | --- | --- |
-| `clickapply` | ClickApply | `jobtarget/apps/clickapply` |
-| `hosted-apply` | Hosted Apply | `jobtarget/apps/hosted-apply` |
-| `cloud-lookup-api` | Posting Reference Lookup API | `jobtarget/apps/apply-systems/cloud-lookup-api` |
-| `apply-with-jobtarget-api` | Apply With JobTarget API | `jobtarget/apps/apply-systems/apply-with-jobtarget-api` |
-| `apply-with-jobtarget-widget` | Apply With JobTarget Widget | `jobtarget/apps/apply-systems/apply-with-jobtarget-widget` |
-| `apply-with-jobtarget-config-ui` | Apply With JobTarget Config UI | `jobtarget/apps/apply-systems/apply-with-jobtarget-config-ui` |
-| `recruitsite-02` | RecruitSite 2.0 | `jobtarget/marketing/recruitsite-02` |
-| `recruitsite-02-configuration-app` | RecruitSite 2.0 Configuration App | `jobtarget/marketing/recruitsite-02-configuration-app` |
-| `recruit-site-job-notification-lambda` | Recruit Site Job Notification Lambda | `jobtarget/marketing/recruit-site-job-notification-lambda` |
-| `jobapplicationapi` | JobApplicationAPI | `jobtarget/core-systems/applications/jobapplicationapi` |
-| `analytics-api` | analytics-api | `jobtarget/apps/apply-systems/analytics-api` |
-| `questionnaire-api` | Questionnaire Api | `jobtarget/apps/apply-systems/questionnaire-api` |
-| `disposition-formatter-lambda` | Disposition Formatter Lambda | `jobtarget/apps/apply-systems/disposition-formatter-lambda` |
-| `disposition-transmitter-lambda` | Disposition Transmitter Lambda | `jobtarget/apps/apply-systems/disposition-transmitter-lambda` |
-| `disposition-listener-lambda` | Disposition Listener Lambda | `jobtarget/apps/apply-systems/disposition-listener-lambda` |
-| `enrichment-manager-lambda` | Enrichment Manager Lambda | `jobtarget/apps/apply-systems/enrichment-manager-lambda` |
-| `delivery-manager-lambda` | Delivery Manager Lambda | `jobtarget/apps/apply-systems/delivery-manager-lambda` |
-| `verification-manager-lambda` | Verification Manager Lambda | `jobtarget/apps/apply-systems/verification-manager-lambda` |
-| `interview-reminder-email` | Interview Reminder Email | `jobtarget/apps/apply-systems/interview-reminder-email` |
+All 19 remotes verified against the expected paths — every one matched.
+
+| Local folder | Name | GitLab path | Tech stack |
+| --- | --- | --- | --- |
+| `clickapply` | ClickApply | `jobtarget/apps/clickapply` | Node 24 · **Sails.js 1.5** · JS · Mocha · Docker |
+| `hosted-apply` | Hosted Apply | `jobtarget/apps/hosted-apply` | Node 20+ · **Sails.js 1.5** · JS · Mocha + nyc · Docker · pm2 · has own `CLAUDE.md` |
+| `cloud-lookup-api` | Posting Reference Lookup API | `jobtarget/apps/apply-systems/cloud-lookup-api` | Node 16 · **Sails.js 1.5** · JS · Mocha · Docker |
+| `apply-with-jobtarget-api` | Apply With JobTarget API | `jobtarget/apps/apply-systems/apply-with-jobtarget-api` | Node 18 · **Sails.js 1.5** · JS · Mocha · Docker |
+| `apply-with-jobtarget-widget` | Apply With JobTarget Widget | `jobtarget/apps/apply-systems/apply-with-jobtarget-widget` | TypeScript 5 · **Stencil 4** web components · Jest |
+| `apply-with-jobtarget-config-ui` | Apply With JobTarget Config UI | `jobtarget/apps/apply-systems/apply-with-jobtarget-config-ui` | TypeScript · **Stencil 2** SPA · Jest · Docker/nginx |
+| `recruitsite-02` | RecruitSite 2.0 | `jobtarget/marketing/recruitsite-02` | **PHP 8 · Laravel 9** · Livewire 2 · Vite + Tailwind + Alpine · PHPUnit · Docker · has own `CLAUDE.md` |
+| `recruitsite-02-configuration-app` | RecruitSite 2.0 Configuration App | `jobtarget/marketing/recruitsite-02-configuration-app` | **PHP 8.1 · Laravel 9** · Livewire 2 · Vite + Tailwind · PHPUnit · Docker |
+| `recruit-site-job-notification-lambda` | Recruit Site Job Notification Lambda | `jobtarget/marketing/recruit-site-job-notification-lambda` | **.NET 8** · AWS Lambda (SQS-triggered) · Serverless Framework · xUnit |
+| `jobapplicationapi` | JobApplicationAPI | `jobtarget/core-systems/applications/jobapplicationapi` | TypeScript 5 · **Express + tsoa** · Jest · Docker · no lockfile committed |
+| `analytics-api` | analytics-api | `jobtarget/apps/apply-systems/analytics-api` | **.NET 10** · ASP.NET Core API · MongoDB · Docker · **no tests** |
+| `questionnaire-api` | Questionnaire Api | `jobtarget/apps/apply-systems/questionnaire-api` | **.NET 8** · ASP.NET Core API · MSSQL · Docker · preview packages · **no tests** |
+| `disposition-formatter-lambda` | Disposition Formatter Lambda | `jobtarget/apps/apply-systems/disposition-formatter-lambda` | Node 22 · JS · AWS Lambda · Terraform · EventBridge · **no tests** |
+| `disposition-transmitter-lambda` | Disposition Transmitter Lambda | `jobtarget/apps/apply-systems/disposition-transmitter-lambda` | Node 22 · JS · AWS Lambda · Terraform · GraphQL · **no tests** |
+| `disposition-listener-lambda` | Disposition Listener Lambda | `jobtarget/apps/apply-systems/disposition-listener-lambda` | Node 22 · JS · AWS Lambda · Terraform · **no lockfile** · **no tests** |
+| `enrichment-manager-lambda` | Enrichment Manager Lambda | `jobtarget/apps/apply-systems/enrichment-manager-lambda` | Node 22 · JS · AWS Lambda · Terraform · aws-sdk **v2** · **no tests** |
+| `delivery-manager-lambda` | Delivery Manager Lambda | `jobtarget/apps/apply-systems/delivery-manager-lambda` | Node 22 · JS · AWS Lambda · Terraform · MongoDB · **no tests** |
+| `verification-manager-lambda` | Verification Manager Lambda | `jobtarget/apps/apply-systems/verification-manager-lambda` | Node 22 · JS · AWS Lambda · Terraform · aws-sdk **v2** · **no tests** |
+| `interview-reminder-email` | Interview Reminder Email | `jobtarget/apps/apply-systems/interview-reminder-email` | Node 22 · JS · AWS Lambda · Terraform · aws-sdk **v2** · **no tests** |
+
+### Test readiness — read before any pipeline run
+
+Verified by inspection on 2026-09-15. This is the single biggest constraint on Phase 2.
+
+- **11 of the 24 repos have no test files at all.** All 7 Apply Systems Lambdas, both .NET Apply Systems APIs (`analytics-api`, `questionnaire-api`), and `call-distribution-update-lambda`.
+- **Three declared test commands point at files that do not exist.** `test:unit` runs `jest --config test-unit.js` in the three disposition Lambdas; `npm test` runs `node test-local.js` in `enrichment-manager-lambda` and `delivery-manager-lambda`. They fail on invocation, not on a real assertion.
+- **`verification-manager-lambda` has no `test` script at all**, and its `package.json` is still named `lambda-hello-world`.
+- **A bare `jest` with no matching files exits non-zero.** Four Lambdas install Jest with nothing to run — that reads as a red suite, not a green one.
+- **`cloud-lookup-api` runs a single spec** on `npm test` even though `test/` holds more. A green there covers almost nothing.
+
+**Consequence:** for those repos the first pipeline run cannot start at the Tester stage — there is no suite to run. Write the first real test by hand before letting `/ship` near them.
+
+Repos with a genuine suite today: `CoreAPI` (NUnit), the three CBS TypeScript Lambdas (Jest), the four Sails apps (Mocha), both Stencil apps (Jest), the Laravel pair (PHPUnit), `recruit-site-job-notification-lambda` (xUnit), and `jobapplicationapi` (Jest).
 
 ### Unassigned
 

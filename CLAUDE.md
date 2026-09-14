@@ -34,7 +34,6 @@ Read `README.md` for the folder model. This file is the source of truth for *how
 
 ## Common Tasks
 
-- **Translate raw** → run the prompt in `prompts/translate.md` against `/raw`.
 - **Log ticket work** → create or append to `/tickets/<KEY>.md` following the ticket protocol.
 - **Coding orchestration** → check `/coding` for an existing prompt or workflow before inventing a new one. If a multi-step coding task recurs, write it down in `/coding` as a reusable prompt.
 - **Think through a ticket or idea** → Phase 1. Run `/grill-me`, `/grill-with-docs`, or `/grilling`, then file the agreed output as a design doc in `/wiki`. See the design doc protocol below.
@@ -249,7 +248,7 @@ These are conventional starting points, **not verified against any specific repo
 
 **Pin the test command per repo before the first pipeline run there.** The Tester stage executes a real suite; without a known runner it guesses, and a guessed green is worse than no test at all. Add a row the first time the pipeline touches a repo — a repo with no row here has not been verified.
 
-Repos are listed in `README.md`; this table records only the ones whose test command has been **verified by actually running it**.
+Repos, their stacks, and their real test-readiness are in `README.md`. **11 of the 24 repos have no tests at all** and several declare commands pointing at missing files — see the Test readiness section there before any pipeline run. This table records only commands **verified by actually running them**.
 
 | Repo | Test command | Build command | Confirmed |
 | --- | --- | --- | --- |
