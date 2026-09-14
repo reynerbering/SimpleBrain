@@ -129,9 +129,26 @@ Read `README.md` for the folder model. This file is the source of truth for *how
 
 ## Coding Standards
 
-<!-- CUSTOMIZE: stack, test commands, build steps, review expectations -->
+**Stacks in play:** .NET (C#) and Node/TypeScript. Anything outside these two is unconfirmed — ask before assuming a language, framework, test runner, or lint setup.
 
-- No stack or build commands are defined yet. Ask before assuming a language, framework, test runner, or lint setup.
+### Stack defaults
+
+These are conventional starting points, **not verified against any specific repo**. Treat them as a first guess to confirm, never as a command to run blind.
+
+| Stack | Test | Build | Notes |
+| --- | --- | --- | --- |
+| .NET (C#) | `dotnet test` | `dotnet build` | Solution-scoped by default; a repo may need `--filter` or a named `.sln`. |
+| Node/TypeScript | `npm test` | `npm run build` | Confirm the package manager first — pnpm and yarn are not interchangeable with npm here. |
+
+### Per-repo pinned commands
+
+**Pin the test command per repo before the first pipeline run there.** The Tester stage executes a real suite; without a known runner it guesses, and a guessed green is worse than no test at all. Add a row the first time the pipeline touches a repo — a repo with no row here has not been verified.
+
+| Repo | Test command | Build command | Confirmed |
+| --- | --- | --- | --- |
+| _(none pinned yet)_ | | | |
+
+### General
+
 - When a coding convention gets decided, write it here rather than rediscovering it each session.
-- **Pin the test command per repo before the first pipeline run there.** The Tester stage executes a real suite; without a known runner it guesses, and a guessed green is worse than no test at all. Record each repo's command in this section as it gets established.
 - **`.pipeline/` is gitignored** in every repo that uses the pipeline. It is scratch handoff state, not source.
