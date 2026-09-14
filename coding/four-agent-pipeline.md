@@ -4,8 +4,8 @@ Reusable orchestration prompt. Planner → Coder → Tester → Reviewer, chaine
 
 - **Source:** "How to Build a 4-Agent Dev Team That Ships Features While You Sleep" — [Google Doc](https://docs.google.com/document/d/1lunO8LyDEnq8T6mBvFKpQIsJ7oskFWXxX3wo6eqNPDs/edit?tab=t.0)
 - **Raw capture:** [[archive/four-agent-pipeline-source.md]]
+- **Live files:** `coding/ship/` — the real agents and command. This note explains them; it does not duplicate them.
 - **Adopted:** 2026-09-15
-- **Agent prompts below are verbatim from the doc.** Only YAML frontmatter and list structure were restored — the source paste had flattened them into prose. No wording changed.
 
 ## Core idea
 
@@ -26,7 +26,7 @@ Reusable orchestration prompt. Planner → Coder → Tester → Reviewer, chaine
 **Gates that stop the pipeline:**
 
 - Spec contains `OPEN QUESTION` → stop, surface to human.
-- Any test fails → stop. Tester does **not** fix it.
+- Any test fails, or no test runner can be identified → stop. Tester does **not** fix it.
 - Reviewer verdict is `NEEDS WORK` or `BLOCK` → stop, human decides.
 
 **Two structural constraints that carry the design:**
@@ -34,168 +34,52 @@ Reusable orchestration prompt. Planner → Coder → Tester → Reviewer, chaine
 - **Tester cannot fix code.** If it could, it'd be implementer and tester at once, and the separation collapses.
 - **Reviewer is read-only.** A model that can patch what it judges rationalizes instead of flagging. Taking away the edit tool is what makes the verdict mean anything.
 
-## Install — global, not per-repo
+## Setup — per machine
 
-Installed once at the **user level**. `/ship` works in every repo; nothing is checked into any of them.
+The pipeline is installed **globally**, at the user level. `/ship` then works in every repo with nothing checked into any of them.
+
+The vault is the source of truth. `coding/ship/` holds the real files; the installer copies them into `~/.claude`.
+
+```powershell
+git pull
+.\coding\ship\install.ps1
+```
+
+Then restart Claude Code. That's the whole setup, and it's the same on both machines.
+
+- `install.ps1 -Check` — dry run, shows what would change and touches nothing.
+- Re-run after any `git pull` that touches `coding/ship/`. Unchanged files are skipped, so it's cheap and safe to run whenever.
+- The installer also sets up the global gitignore for `.pipeline/` (see below). Skip with `-SkipGitIgnore`.
+
+**What it installs:**
 
 ```
-~/.claude/agents/ship-planner.md
-~/.claude/agents/ship-coder.md
-~/.claude/agents/ship-tester.md
-~/.claude/agents/ship-reviewer.md
-~/.claude/commands/ship.md
+coding/ship/agents/ship-planner.md    ->  ~/.claude/agents/ship-planner.md
+coding/ship/agents/ship-coder.md      ->  ~/.claude/agents/ship-coder.md
+coding/ship/agents/ship-tester.md     ->  ~/.claude/agents/ship-tester.md
+coding/ship/agents/ship-reviewer.md   ->  ~/.claude/agents/ship-reviewer.md
+coding/ship/commands/ship.md          ->  ~/.claude/commands/ship.md
 ```
 
-**Installed 2026-09-15.** The blocks below are the source of truth — if a file at `~/.claude` drifts, restore it from here.
+**Editing the pipeline:** change the file in `coding/ship/`, re-run the installer, commit, push. Never edit `~/.claude` directly — the next install silently overwrites it and the change is lost. Copies flow one way only, vault → machine.
 
-**Agents are named `ship-*`, not `planner`/`coder`/etc.** Deviation from the doc, deliberate: these are global now, so bare names like `coder` would sit in every project and be silently shadowed by any repo that defines its own. Prefixing keeps the pipeline self-contained.
-
-**`.pipeline/` still gets written into whatever repo you run in.** It's scratch handoff state, not source. Global ignore, once:
+**`.pipeline/` gets written into whatever repo you run in.** Scratch handoff state, not source. The installer handles this once per machine:
 
 ```
 git config --global core.excludesFile ~/.gitignore_global
 echo ".pipeline/" >> ~/.gitignore_global
 ```
 
-Otherwise every repo you ship in grows an untracked `.pipeline/` that shows up in `git status`.
+Without it, every repo you ship in grows an untracked `.pipeline/` in `git status`.
 
-### `~/.claude/agents/ship-planner.md`
+## Deviations from the source doc
 
-```markdown
----
-name: ship-planner
-description: Turns a feature request into an implementation spec. Use as the first stage of the feature pipeline.
-tools: Read, Grep, Glob, Write
-model: opus
----
+The four agent prompts are **verbatim** from the doc — only YAML frontmatter and list structure were restored, since the source paste had flattened them into prose. Everything below is an addition, and all of it exists because the doc assumed a per-repo install and this one is global.
 
-You are a planning specialist. You do NOT write implementation code.
-
-Given a feature request:
-
-1. Read the relevant parts of the codebase to understand current patterns.
-2. Write a spec to .pipeline/spec.md containing:
-   - Files to create or modify, with exact paths.
-   - The interface or function signatures needed.
-   - Edge cases the implementation must handle.
-   - Which existing patterns to follow (name the file to copy from).
-3. Flag anything ambiguous as an OPEN QUESTION at the top of the spec.
-
-Keep the spec tight. The Coder reads this and nothing else, so leave no gaps and invent no requirements that were not asked for.
-```
-
-### `~/.claude/agents/ship-coder.md`
-
-```markdown
----
-name: ship-coder
-description: Implements the spec at .pipeline/spec.md. Use as the second stage of the feature pipeline, after the planner.
-tools: Read, Write, Edit, Grep, Glob, Bash
-model: sonnet
----
-
-You are an implementation specialist.
-
-1. Read .pipeline/spec.md in full. If it has OPEN QUESTIONS, stop and surface them instead of guessing.
-2. Implement exactly what the spec describes. Follow the patterns it names. Do not add features it did not ask for.
-3. Write a short summary to .pipeline/changes.md: which files changed, what each change does, and anything the Tester should focus on.
-
-You write code that matches the repo. You do not refactor unrelated code or improve things outside the spec's scope.
-```
-
-### `~/.claude/agents/ship-tester.md`
-
-```markdown
----
-name: ship-tester
-description: Writes and runs tests for changes described in .pipeline/changes.md. Third stage of the feature pipeline.
-tools: Read, Write, Edit, Grep, Glob, Bash
-model: sonnet
----
-
-You are a test specialist.
-
-1. Read .pipeline/changes.md to see what was built and where.
-2. Read the changed files and the spec at .pipeline/spec.md.
-3. Write tests covering: the happy path, the edge cases the spec named, and at least one failure case. Match the repo's test framework.
-4. Run the tests. If any fail, write the failures to .pipeline/test-results.md and STOP. Do not fix the code yourself.
-5. If all pass, note that in .pipeline/test-results.md.
-
-You test behavior, not implementation details. A failing test means the pipeline pauses for the Reviewer, not that you patch around it.
-
-Determining the test command: infer it from the repo itself — package.json scripts, Makefile, pyproject.toml, go.mod, the CI config, or an existing test directory's conventions. If you cannot determine how to run the suite with confidence, write "no test runner identified" to .pipeline/test-results.md and STOP. Do not invent a command and do not report a pass you did not observe.
-```
-
-> The final paragraph is an addition, not from the doc. A global pipeline meets repos it knows nothing about, so the Tester needs an explicit instruction to refuse rather than guess a runner. A guessed green is worse than no test.
-
-### `~/.claude/agents/ship-reviewer.md`
-
-```markdown
----
-name: ship-reviewer
-description: Final review of the full pipeline output. Fourth and last stage before human sign-off.
-tools: Read, Grep, Glob, Bash
-model: opus
----
-
-You are a senior reviewer. You are read-only. You do not edit code.
-
-1. Read the spec, the changes summary, and the test results from .pipeline/.
-2. Run git diff to see the actual changes.
-3. Assess: does the code match the spec? Are the tests meaningful or superficial? Any security, performance, or correctness issues?
-4. Write a verdict to .pipeline/review.md:
-   VERDICT: SHIP / NEEDS WORK / BLOCK
-   For NEEDS WORK or BLOCK, list exactly what to fix and where.
-
-Be the last line of defense. If the tests are green but the code is wrong, say BLOCK. Green tests are not the same as correct behavior.
-
-You do not stage, commit, merge, or push. Your only output is the verdict file.
-```
-
-> The final line is an addition, not from the doc. It restates the read-only constraint as an explicit prohibition, since the Reviewer has Bash and could otherwise reach git.
-
-### `~/.claude/commands/ship.md`
-
-```markdown
----
-description: Run the four-agent feature pipeline (plan → code → test → review) on the current repo
-argument-hint: <feature request>
----
-
-Run the full feature pipeline for: $ARGUMENTS
-
-If $ARGUMENTS is empty, stop and ask what to build. Do not infer a feature from the conversation.
-
-## Preflight
-
-1. Confirm the working directory is a git repo. If not, stop.
-2. Check the current branch. If it is `main`, `master`, `develop`, or `trunk`, STOP and tell me — offer a branch name derived from the request (e.g. `feat/<slug>`, or `feat/<JIRA-KEY>-<slug>` if the request names a ticket) and wait for my go-ahead. Never run the pipeline on a shared branch.
-3. Delete the contents of `.pipeline/` so no agent reads stale output from a previous run. Recreate the directory empty.
-4. If `.pipeline/` is not covered by this repo's `.gitignore` or your global excludes, say so once. It is scratch handoff state and should not be committed.
-
-## Stages
-
-Execute in order. Do not skip ahead. After each stage, confirm the handoff file exists before starting the next. Do not do any of the stage work yourself — each stage is delegated.
-
-1. Delegate to the **ship-planner** subagent with the feature request above. Wait for `.pipeline/spec.md`.
-2. Read the spec. If it contains OPEN QUESTIONS, STOP and show them to me. Otherwise delegate to the **ship-coder** subagent. Wait for `.pipeline/changes.md`.
-3. Delegate to the **ship-tester** subagent. Wait for `.pipeline/test-results.md`. If any test failed, or the tester reported no test runner identified, STOP and show me the details. Do not fix the code and do not proceed to review.
-4. Delegate to the **ship-reviewer** subagent. Wait for `.pipeline/review.md`. Show it to me.
-
-## Rules
-
-- A stage gate that trips ends the run. Do not retry, work around, or "fix it quickly" yourself — surface it and stop.
-- Do not stage, commit, merge, or push anything at any point.
-- Report the final verdict and where the handoff files are. Leave the branch for my review.
-
-## After the run
-
-If the request names a Jira key, remind me to log the run in `tickets/<KEY>.md` in the SimpleBrain vault — verdict, what the reviewer flagged, and any gate that tripped.
-```
-
-**Deviations from the doc's `ship.md`, all deliberate:**
-
-- **Preflight branch guard.** The doc says "create a new branch" as a human step before running. A global command will eventually get fired on `main` by accident; the guard makes that a stop instead of a mess.
+- **Agents renamed `ship-*`.** Bare names like `coder` would sit in every project and be silently shadowed by any repo defining its own. Prefixing keeps the pipeline self-contained.
+- **Tester must refuse to guess a test runner.** A global pipeline meets repos it knows nothing about. It now reports `no test runner identified` and stops. A guessed green is worse than no test at all.
+- **Reviewer's read-only rule restated as an explicit git prohibition.** It has Bash, so "read-only" alone doesn't stop it reaching git.
+- **Preflight branch guard.** The doc makes branching a human step. A global command will eventually get fired on `main`; the guard makes that a stop instead of a mess.
 - **`.pipeline/` cleanup in preflight.** The doc raises it as a tip and suggests folding it into the command. Folded in.
 - **Empty-argument check.** Without it, `/ship` with no argument invents a feature from whatever was being discussed.
 - **Explicit "do not do the stage work yourself."** The orchestrator has full tools and will otherwise sometimes just implement the thing, collapsing the separation the whole design rests on.
@@ -229,12 +113,13 @@ Morning: read `.pipeline/review.md` first, then the diff.
 
 ## Caveats
 
-- **Test runner per repo.** The Tester executes a real suite. It's instructed to refuse rather than guess, so an unfamiliar repo will stop at stage 3 with "no test runner identified" — that's the correct failure. Pin the command in that repo's `CLAUDE.md` and it stops recurring.
+- **Test runner per repo.** The Tester executes a real suite. An unfamiliar repo will stop at stage 3 with "no test runner identified" — that's the correct failure, not a bug. Pin the command in that repo's `CLAUDE.md` and it stops recurring.
 - **Unattended runs.** The pipeline stops at the Reviewer and never merges. Keep it that way. If it ever gets commit or push rights, the human gate is gone and so is the reason the read-only Reviewer exists.
-- **Global means global.** The `ship-*` agents are visible in every project, including this vault. Harmless — they only activate when `/ship` delegates to them — but it does mean a change to `~/.claude/agents/` changes every repo's pipeline at once. This note is the backup.
-- **Untested.** Installed 2026-09-15, not yet run end-to-end on a real repo. First run should be a small bounded feature.
+- **Global means global.** The `ship-*` agents are visible in every project, including this vault. Harmless — they only activate when `/ship` delegates to them — but a change to `coding/ship/` changes every repo's pipeline on the next install.
+- **Work vs personal machine.** Both run the same install. If the work machine ever needs different behaviour (different models, stricter gates), fork the file in `coding/ship/` rather than hand-editing `~/.claude` there — otherwise the next install wipes it.
+- **Untested.** Installed 2026-09-15, not yet run end-to-end on a real repo. First run should be a small bounded feature on a repo whose test command you already know.
 
 ## Related
 
-- Workflow-script variant: [[coding/ship-workflow.js]] — same stages, deterministic gating.
+- Workflow-script variant: [[coding/ship-workflow.js]] — same stages, gates enforced as code rather than instructions.
 - Ticket protocol: see `CLAUDE.md`. Every ticket logs its pipeline run.

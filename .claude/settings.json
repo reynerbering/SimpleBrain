@@ -9,7 +9,8 @@
       "Write(C:\\\\Users\\\\reyner\\\\.claude\\\\agents\\\\ship-reviewer.md)",
       "Write(C:\\\\Users\\\\reyner\\\\.claude\\\\commands\\\\ship.md)",
       "PowerShell(git -C \"C:\\\\Users\\\\reyner\\\\Documents\\\\GitHub\\\\SimpleBrain\" diff .claude/settings.json)",
-      "PowerShell(git add -A)"
+      "PowerShell(git add -A)",
+      "PowerShell(& \"C:\\\\Users\\\\reyner\\\\Documents\\\\GitHub\\\\SimpleBrain\\\\coding\\\\ship\\\\install.ps1\"; \"EXITCODE=$LASTEXITCODE\")"
     ]
   }
 }
