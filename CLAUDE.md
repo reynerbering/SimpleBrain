@@ -25,7 +25,7 @@ Read `README.md` for the folder model. This file is the source of truth for *how
 | `/wiki` | Clean notes **and design docs**. One topic per file, kebab-case. Design docs are named `<KEY>-<slug>.md`. |
 | `/archive` | Processed `/raw` files land here. Permanent, immutable record. |
 | `/coding` | Engineering notes **and** reusable orchestration prompts/workflows for multi-step coding tasks. |
-| `/prompts` | Standing prompts run against the vault (e.g. `translate.md`). |
+| `/prompts` | Standing prompts run against the vault. Currently empty. |
 | `/templates` | Obsidian templates for a design doc and a ticket. Set as the Templates plugin folder. |
 | `/tickets` | One file per Jira ticket. See the ticket protocol below. |
 | `/skills` | Versioned source of truth for personal Claude Code skills. Installed to `~/.claude/skills` by `skills/install.ps1`. |
@@ -259,7 +259,7 @@ The Bases in `wiki/design-docs.base` and `tickets/tickets.base` read these prope
 3. **Never modify** `/archive` after a file lands there — it is a permanent record.
 4. **Never invent facts.** When uncertain, log the uncertainty inside the entry rather than guessing. This applies doubly to ticket keys, statuses, dates, and file paths.
 5. **Move and rename through Obsidian**, not shell `mv`, so links stay intact.
-6. **Commit after meaningful changes** with a clear message (e.g. `translate: 4 inbox files processed`, `tickets: PROJ-1234 log for 2026-09-14`).
+6. **Commit after meaningful changes** with a clear message (e.g. `wiki: CBS-1234 design doc`, `tickets: AS-5678 log for 2026-09-14`).
 
 ---
 
