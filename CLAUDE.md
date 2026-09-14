@@ -28,6 +28,7 @@ Read `README.md` for the folder model. This file is the source of truth for *how
 | `/prompts` | Standing prompts run against the vault (e.g. `translate.md`). |
 | `/tickets` | One file per Jira ticket. See the ticket protocol below. |
 | `/skills` | Versioned source of truth for personal Claude Code skills. Installed to `~/.claude/skills` by `skills/install.ps1`. |
+| `/user-memory` | Template for `~/.claude/CLAUDE.md`, the user-level memory that imports this vault into every repo. Installed by `user-memory/install.ps1`. |
 
 ---
 
@@ -39,6 +40,7 @@ Read `README.md` for the folder model. This file is the source of truth for *how
 - **Implement a ticket** → run it through the four-agent pipeline in `coding/four-agent-pipeline.md`. This is the default path for ticket work, not an option.
 - **Answer questions** → read `/wiki`, `/tickets`, and `/archive` to answer ad-hoc questions about past thinking and past work.
 - **Install skills** → run `skills/install.ps1` after any `git pull` that touches `/skills`. Same vault-is-source pattern as `coding/ship/install.ps1`.
+- **Install user memory** → run `user-memory/install.ps1` to point `~/.claude/CLAUDE.md` at this vault. Resolves the vault path per machine, so it works from any checkout location.
 
 **Skills — where they come from.** `/skills` holds all 48. 23 of them originate from the `npx agents` installer, which writes to `~/.agents/skills`; a `SessionStart` hook (`~/.claude/sync-skills.sh`) copies that folder into `~/.claude/skills` on every session start. That hook runs **after** this vault's installer and will overwrite those 23 with the upstream copy. So for those, the vault copy is a versioned backup, not the live authority. The other 25 (the `aws-*` set, `cloudwatch`, `investigate-ticket`, `playwriter`, `signing-in-to-aws`) have no upstream — the vault is their only copy. To make the vault authoritative for all 48, retire the `sync-skills.sh` hook and update the 23 by re-syncing `~/.agents/skills` into `/skills` and committing.
 

@@ -1,0 +1,48 @@
+# User-level memory — Neru
+
+My second brain is the source of truth for how I work. Both files below are
+imported live, so they always reflect the current version in the vault.
+
+NOTE: each @import must sit on its own line with a blank line between them.
+Two @imports on consecutive lines silently parse as one — the second is
+dropped with no error.
+
+@{{VAULT_POSIX}}/CLAUDE.md
+
+@{{VAULT_POSIX}}/README.md
+
+---
+
+## Scope of the imports above
+
+The vault is at `{{VAULT_WIN}}`. The imported instructions were written for
+it, and not all of them travel. Apply them by scope:
+
+**Applies everywhere — every repo, every session:**
+
+- Who I am, my topics, and my voice preference.
+- The Jira ticket protocol, including the `/tickets/<KEY>.md` format. Ticket
+  files always live in the vault, even when the code work happens elsewhere.
+- The four-agent pipeline as the default path for ticket work, and the rule
+  that it never merges — I am the final gate.
+- Coding Standards: the .NET and Node stacks, and pinning a repo's real test
+  command before the first pipeline run there.
+- Never invent facts. Log uncertainty in the entry instead of guessing. This
+  applies doubly to ticket keys, statuses, dates, and file paths.
+- Always run `date` for the real current date. Never back-fill from memory.
+
+**Vault-only — do NOT apply in a code repo:**
+
+- The folder model (`/raw`, `/wiki`, `/archive`, `/prompts`, `/skills`) and
+  every rule about moving, merging, or never deleting from those folders.
+- Wiki voice and structure conventions.
+- "Move and rename through Obsidian" — that is about preserving vault links.
+  In a code repo, use normal git operations.
+
+When a vault rule and a repo's own conventions conflict inside that repo, the
+repo wins. Say so rather than silently applying a vault rule out of context.
+
+---
+
+<!-- Generated from user-memory/CLAUDE.md.template by user-memory/install.ps1.
+     Edit the template in the vault, not this file — install.ps1 overwrites it. -->
