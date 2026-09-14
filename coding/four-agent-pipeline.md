@@ -122,5 +122,6 @@ Morning: read `.pipeline/review.md` first, then the diff.
 
 ## Related
 
+- **Phase 1 comes first.** This pipeline is Phase 2 of the two-phase workflow — it expects a design doc in `/wiki/<KEY>-<slug>.md`, produced by a `/grill-me` session. Feed that doc to the Planner, not a one-line ask. See the [README](../README.md) and `CLAUDE.md`.
 - Workflow-script variant: [[coding/ship-workflow.js]] — same stages, gates enforced as code rather than instructions.
 - Ticket protocol: see `CLAUDE.md`. Every ticket logs its pipeline run.
