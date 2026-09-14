@@ -6,12 +6,17 @@
 // local adaptation that moves the orchestration from a prose slash-command into
 // deterministic control flow. See coding/four-agent-pipeline.md.
 //
-// INSTALL: copy to <repo>/.claude/workflows/ship.js in the TARGET code repo.
-// Requires .claude/agents/{planner,coder,tester,reviewer}.md to exist in that repo —
-// agentType resolves against them, so each stage inherits its pinned model and tools.
+// INSTALL: copy to ~/.claude/workflows/ship.js for a global install, or into a
+// single repo at <repo>/.claude/workflows/ship.js.
+// Requires the ship-* agents at ~/.claude/agents/ — agentType resolves against
+// them, so each stage inherits its pinned model and tools.
 //
-// RUN:  Workflow({ scriptPath: ".claude/workflows/ship.js",
+// RUN:  Workflow({ scriptPath: "<path>/ship.js",
 //                  args: "add rate limiting to the login endpoint, max 5/min per IP, 429 after limit" })
+//
+// NOTE: the /ship slash command is the primary entry point. This script is the
+// alternative for when you want the gates enforced as code rather than as
+// instructions. Both drive the same four ship-* agents.
 //
 // WHY A SCRIPT INSTEAD OF /ship: the gates become real control flow instead of
 // instructions a model may skip under pressure. OPEN QUESTIONS and failing tests
@@ -109,7 +114,7 @@ Follow your agent definition exactly. Write the spec to .pipeline/spec.md.
 Before you start, ignore and overwrite any pre-existing .pipeline/spec.md — it is stale output from a previous run.
 
 Then return the structured summary. openQuestions must list every ambiguity you flagged as an OPEN QUESTION in the spec, verbatim. If the request is fully unambiguous, return an empty array — do not invent questions to seem thorough, and do not suppress real ones to keep the pipeline moving.`,
-  { agentType: 'planner', phase: 'Plan', label: 'plan' }
+  { agentType: 'ship-planner', phase: 'Plan', label: 'plan' }
 )
 
 if (!spec) return { stoppedAt: 'Plan', reason: 'Planner did not return a result.' }
@@ -134,7 +139,7 @@ const changes = await agent(
 Write your summary to .pipeline/changes.md, then return the structured result.
 
 If you find OPEN QUESTIONS in the spec, do not guess: set blockedOnOpenQuestions true, write nothing, and return immediately.`,
-  { agentType: 'coder', phase: 'Build', label: 'build' }
+  { agentType: 'ship-coder', phase: 'Build', label: 'build' }
 )
 
 if (!changes) return { stoppedAt: 'Build', reason: 'Coder did not return a result.', spec: spec.summary }
@@ -156,7 +161,7 @@ Write results to .pipeline/test-results.md, then return the structured result.
 Report honestly. If the suite fails, set allPassed false and list the failures — do NOT fix the code, and do not weaken or skip a test to make it pass. A red suite is a valid, useful outcome here.
 
 If you cannot determine how to run the repo's test suite, treat that as a failure with reason "no test runner identified" rather than guessing a command.`,
-  { agentType: 'tester', phase: 'Test', label: 'test' }
+  { agentType: 'ship-tester', phase: 'Test', label: 'test' }
 )
 
 if (!tests) return { stoppedAt: 'Test', reason: 'Tester did not return a result.', changes: changes.summary }
@@ -185,7 +190,7 @@ Read .pipeline/spec.md, .pipeline/changes.md, .pipeline/test-results.md, and run
 Write your verdict to .pipeline/review.md, then return the structured result.
 
 The tests are green. That is not evidence the code is correct — it is only evidence the tests pass. Judge the diff against the spec on its own merits. If the code is wrong, say BLOCK regardless of the green suite.`,
-  { agentType: 'reviewer', phase: 'Review', label: 'review' }
+  { agentType: 'ship-reviewer', phase: 'Review', label: 'review' }
 )
 
 if (!review) return { stoppedAt: 'Review', reason: 'Reviewer did not return a result.', changes: changes.summary }

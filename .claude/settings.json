@@ -5,7 +5,11 @@
       "PowerShell(git add .gitignore)",
       "WebFetch(domain:docs.google.com)",
       "WebFetch(domain:doc-0o-bg-docstext.googleusercontent.com)",
-      "Bash(obsidian vault=\"SimpleBrain\" move path=\"raw/four-agent-pipeline-source.md\" to=\"archive/four-agent-pipeline-source.md\")"
+      "Bash(obsidian vault=\"SimpleBrain\" move path=\"raw/four-agent-pipeline-source.md\" to=\"archive/four-agent-pipeline-source.md\")",
+      "Write(C:\\\\Users\\\\reyner\\\\.claude\\\\agents\\\\ship-reviewer.md)",
+      "Write(C:\\\\Users\\\\reyner\\\\.claude\\\\commands\\\\ship.md)",
+      "PowerShell(git -C \"C:\\\\Users\\\\reyner\\\\Documents\\\\GitHub\\\\SimpleBrain\" diff .claude/settings.json)",
+      "PowerShell(git add -A)"
     ]
   }
 }
