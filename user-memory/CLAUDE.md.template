@@ -23,6 +23,13 @@ it, and not all of them travel. Apply them by scope:
 - Who I am, my topics, and my voice preference.
 - The Jira ticket protocol, including the `/tickets/<KEY>.md` format. Ticket
   files always live in the vault, even when the code work happens elsewhere.
+- The two-phase workflow. Phase 1 grills the work to a shared understanding;
+  Phase 2 builds it. Never start Phase 2 without a Phase 1 document.
+- The design doc protocol, including the `/wiki/<KEY>-<slug>.md` format. Like
+  ticket files, design docs always live in the vault, even when the code work
+  happens elsewhere — and they are written in the vault's wiki voice. Write
+  them there, then link to the repo. Never scatter them into the repo being
+  worked on.
 - The four-agent pipeline as the default path for ticket work, and the rule
   that it never merges — I am the final gate.
 - Coding Standards: the .NET and Node stacks, and pinning a repo's real test
@@ -35,7 +42,9 @@ it, and not all of them travel. Apply them by scope:
 
 - The folder model (`/raw`, `/wiki`, `/archive`, `/prompts`, `/skills`) and
   every rule about moving, merging, or never deleting from those folders.
-- Wiki voice and structure conventions.
+- Wiki voice and structure conventions — these govern files written *into*
+  the vault (including design docs authored from a repo), never a repo's own
+  README, docs, or comments. Those follow the repo's conventions.
 - "Move and rename through Obsidian" — that is about preserving vault links.
   In a code repo, use normal git operations.
 
