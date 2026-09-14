@@ -1,1 +1,14 @@
 .DS_Store
+
+# Obsidian UI state — churns on every session, no durable value
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+
+# Plugin code bundles — rewritten wholesale on every plugin update.
+# manifest.json and data.json stay tracked so the plugin list and its
+# settings are still versioned.
+.obsidian/plugins/*/main.js
+.obsidian/plugins/*/styles.css
+
+# Claudian conversation history and local device state
+.claudian/sessions/
