@@ -113,7 +113,8 @@ Morning: read `.pipeline/review.md` first, then the diff.
 
 ## Caveats
 
-- **Test runner per repo.** The Tester executes a real suite. An unfamiliar repo will stop at stage 3 with "no test runner identified" — that's the correct failure, not a bug. Pin the command in that repo's `CLAUDE.md` and it stops recurring.
+- **Test runner resolution.** The Tester resolves in strict order: the repo's own `CLAUDE.md` / `AGENTS.md` / `README.md` → stack detection (.NET via `.sln`/`.csproj`, Node/TS via `package.json`) → stop. Ambiguity is a stop, not a guess: mixed stacks, monorepo without a clear root, or a missing `test` script all halt stage 3. Stack shapes live in the vault [README](../README.md); a repo's own `CLAUDE.md` always wins over them.
+- **Env failures are not test failures.** A missing SDK or uninstalled deps stops the pipeline and is reported as environmental, not as the code being wrong. Don't read that as a `BLOCK`.
 - **Unattended runs.** The pipeline stops at the Reviewer and never merges. Keep it that way. If it ever gets commit or push rights, the human gate is gone and so is the reason the read-only Reviewer exists.
 - **Global means global.** The `ship-*` agents are visible in every project, including this vault. Harmless — they only activate when `/ship` delegates to them — but a change to `coding/ship/` changes every repo's pipeline on the next install.
 - **Work vs personal machine.** Both run the same install. If the work machine ever needs different behaviour (different models, stricter gates), fork the file in `coding/ship/` rather than hand-editing `~/.claude` there — otherwise the next install wipes it.
