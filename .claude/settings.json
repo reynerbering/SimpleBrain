@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(git rm -r --cached --quiet .obsidian/workspace.json \".obsidian/plugins/obsidian-excalidraw-plugin/main.js\" \".obsidian/plugins/obsidian-excalidraw-plugin/styles.css\" \".obsidian/plugins/realclaudian/main.js\" \".obsidian/plugins/realclaudian/styles.css\" .claudian/sessions)",
+      "PowerShell(git add .gitignore)",
+      "WebFetch(domain:docs.google.com)",
+      "WebFetch(domain:doc-0o-bg-docstext.googleusercontent.com)",
+      "Bash(obsidian vault=\"SimpleBrain\" move path=\"raw/four-agent-pipeline-source.md\" to=\"archive/four-agent-pipeline-source.md\")"
+    ]
+  }
+}

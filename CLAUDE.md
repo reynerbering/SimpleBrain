@@ -35,6 +35,7 @@ Read `README.md` for the folder model. This file is the source of truth for *how
 - **Translate raw** → run the prompt in `prompts/translate.md` against `/raw`.
 - **Log ticket work** → create or append to `/tickets/<KEY>.md` following the ticket protocol.
 - **Coding orchestration** → check `/coding` for an existing prompt or workflow before inventing a new one. If a multi-step coding task recurs, write it down in `/coding` as a reusable prompt.
+- **Implement a ticket** → run it through the four-agent pipeline in `coding/four-agent-pipeline.md`. This is the default path for ticket work, not an option.
 - **Answer questions** → read `/wiki`, `/tickets`, and `/archive` to answer ad-hoc questions about past thinking and past work.
 
 ---
@@ -63,6 +64,15 @@ Read `README.md` for the folder model. This file is the source of truth for *how
 
 **Dates:** always run `date` to get the real current date. Never assume or back-fill a date from memory.
 
+**Implementation — the four-agent pipeline:**
+
+- Every ticket that involves writing code runs through `coding/four-agent-pipeline.md`: Planner → Coder → Tester → Reviewer.
+- Work on a branch named for the ticket (e.g. `feat/PROJ-1234-<slug>`). Never run the pipeline on `main`.
+- The pipeline **never merges**. The reviewer's verdict is a recommendation; Neru is the final gate.
+- Log the run in the ticket entry: verdict, what the reviewer flagged, and where the `.pipeline/` handoff files live.
+- If a stage gate trips — spec has `OPEN QUESTION`, tests fail, verdict is `NEEDS WORK` or `BLOCK` — that goes in **Blockers / Open questions**, not silently retried.
+- Skipping the pipeline is allowed for trivial work (one-line fix, config tweak, revert). Say so in the entry and why.
+
 **Template:**
 
 ```markdown
@@ -81,6 +91,11 @@ Read `README.md` for the folder model. This file is the source of truth for *how
 
 **Touched**
 - repo/branch, PR #, files
+
+**Pipeline**
+- Verdict: SHIP | NEEDS WORK | BLOCK | not run (<why>)
+- Stopped at: <stage, if it halted early>
+- Reviewer flagged: ...
 
 **Blockers / Open questions**
 - ...
@@ -118,3 +133,5 @@ Read `README.md` for the folder model. This file is the source of truth for *how
 
 - No stack or build commands are defined yet. Ask before assuming a language, framework, test runner, or lint setup.
 - When a coding convention gets decided, write it here rather than rediscovering it each session.
+- **Pin the test command per repo before the first pipeline run there.** The Tester stage executes a real suite; without a known runner it guesses, and a guessed green is worse than no test at all. Record each repo's command in this section as it gets established.
+- **`.pipeline/` is gitignored** in every repo that uses the pipeline. It is scratch handoff state, not source.
