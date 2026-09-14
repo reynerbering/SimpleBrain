@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "conversationId": "conv-1789392020967-5pligk9hp",
+  "records": [
+    {
+      "schemaVersion": 1,
+      "id": "msg-1789392021839-pjktwdu",
+      "userTurnOrdinal": 1,
+      "state": "accepted",
+      "localMessageId": "msg-1789392020964-0d7t1it",
+      "timestamp": 1789392020964,
+      "rawDisplayText": "Make a Claude.md summary as a senior software developer. Modify the current file and add my changes there. Ask me questions when you need specifics",
+      "canonicalText": "Make a Claude.md summary as a senior software developer. Modify the current file and add my changes there. Ask me questions when you need specifics",
+      "context": {
+        "linkedContent": {
+          "path": "CLAUDE.md"
+        }
+      },
+      "images": [],
+      "contentDigest": "1b44cc6acb9ee630ad9eaf609ae5b4e8bbb8fb5d86540f86da27ca7fbf5fb2a9",
+      "providerUserMessageId": "e5b4d822-e497-4846-928b-229cf1fe6d16"
+    },
+    {
+      "schemaVersion": 1,
+      "id": "msg-1789392752069-1b0vft1",
+      "userTurnOrdinal": 2,
+      "state": "accepted",
+      "localMessageId": "msg-1789392752066-d60gdyl",
+      "timestamp": 1789392752066,
+      "rawDisplayText": "what was the last question",
+      "canonicalText": "what was the last question",
+      "images": [],
+      "contentDigest": "8f0dca935e63f51a77e762c9143b5cd75f9f577618fbdef343231432e16b6670",
+      "providerUserMessageId": "8463988d-00de-4a87-b6b5-1c469360b02f",
+      "providerAssistantMessageId": "873f8a40-ddf3-44a1-bd41-7d2bcde69f7e"
+    },
+    {
+      "schemaVersion": 1,
+      "id": "msg-1789392770458-12rw0tt",
+      "userTurnOrdinal": 3,
+      "state": "accepted",
+      "localMessageId": "msg-1789392770456-hzdjnyb",
+      "timestamp": 1789392770456,
+      "rawDisplayText": "continue",
+      "canonicalText": "continue",
+      "images": [],
+      "contentDigest": "61b00692723054a5a149bf4fbe7176ccd6af5efb8445c87903bfb287b52a662a",
+      "providerUserMessageId": "f0e21183-067a-4b18-a235-3e8b43d0590f",
+      "providerAssistantMessageId": "f7ad9094-8440-486d-91af-96f7020a7724"
+    },
+    {
+      "schemaVersion": 1,
+      "id": "msg-1789393314165-fm3oq3e",
+      "userTurnOrdinal": 4,
+      "state": "accepted",
+      "localMessageId": "msg-1789393314158-8ssoser",
+      "timestamp": 1789393314158,
+      "rawDisplayText": "what was the bash request",
+      "canonicalText": "what was the bash request",
+      "images": [],
+      "contentDigest": "dd3cf7b66317b2be79d6b2c038066485e5b24fef1285f01dc9683139b8f6a8f0",
+      "providerUserMessageId": "2d62814e-98ef-4117-8735-8725244fe805",
+      "providerAssistantMessageId": "d54a33aa-212d-4ba5-8dfb-f1f7d7ae5f59"
+    },
+    {
+      "schemaVersion": 1,
+      "id": "msg-1789393398460-fvnbevs",
+      "userTurnOrdinal": 5,
+      "state": "accepted",
+      "localMessageId": "msg-1789393398452-5felxue",
+      "timestamp": 1789393398452,
+      "rawDisplayText": "re-run it",
+      "canonicalText": "re-run it",
+      "images": [],
+      "contentDigest": "debf1a74a0bfa366b0d2aaa0240a3872cc8f9e38df65c4be12c71dcdedc43ab1",
+      "providerUserMessageId": "9f47aeb7-f2d3-4a1a-90c7-8f21738ac038",
+      "providerAssistantMessageId": "bd6228bf-3630-4de0-9327-8cc7a7c78d93"
+    },
+    {
+      "schemaVersion": 1,
+      "id": "msg-1789393753289-7c3sqvy",
+      "userTurnOrdinal": 6,
+      "state": "accepted",
+      "localMessageId": "msg-1789393753284-4qingni",
+      "timestamp": 1789393753284,
+      "rawDisplayText": "push it on main",
+      "canonicalText": "push it on main",
+      "images": [],
+      "contentDigest": "15b1d3b7635a89b778874c7a08a7f5413ab6298d89ce42eb3fb5359d443b6080",
+      "providerUserMessageId": "4c5b20f3-8b78-4875-935c-61fec550a720",
+      "providerAssistantMessageId": "ac4b86e6-3934-475f-aa85-2edb20ee729f"
+    }
+  ]
+}

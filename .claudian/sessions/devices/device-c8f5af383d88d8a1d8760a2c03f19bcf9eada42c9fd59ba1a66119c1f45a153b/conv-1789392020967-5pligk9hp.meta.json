@@ -1,0 +1,24 @@
+{
+  "id": "conv-1789392020967-5pligk9hp",
+  "providerId": "claude",
+  "title": "Refine CLAUDE.md project instructions",
+  "titleGenerationStatus": "success",
+  "createdAt": 1789392020972,
+  "lastActivityAt": 1789393773742,
+  "sessionId": "344e5868-e26f-47fc-b193-c2dfeccf8994",
+  "selectedModel": "opus",
+  "providerState": {
+    "providerSessionId": "344e5868-e26f-47fc-b193-c2dfeccf8994"
+  },
+  "linkedContentPath": "CLAUDE.md",
+  "usage": {
+    "model": "opus",
+    "inputTokens": 2,
+    "cacheCreationInputTokens": 326,
+    "cacheReadInputTokens": 38140,
+    "contextWindow": 1000000,
+    "contextTokens": 38468,
+    "percentage": 4,
+    "contextWindowIsAuthoritative": true
+  }
+}

@@ -8,7 +8,7 @@
         "type": "tabs",
         "children": [
           {
-            "id": "135e98261a2cca54",
+            "id": "2548b327ad22bbff",
             "type": "leaf",
             "state": {
               "type": "markdown",
@@ -83,7 +83,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 226.5
   },
   "right": {
     "id": "769b43add5ec7aad",
@@ -166,13 +166,34 @@
               "icon": "lucide-list",
               "title": "Outline"
             }
+          },
+          {
+            "id": "d77d8c029bf294be",
+            "type": "leaf",
+            "state": {
+              "type": "claudian-view",
+              "state": {
+                "tabWorkspace": {
+                  "version": 1,
+                  "openTabs": [
+                    {
+                      "tabId": "tab-1789391969409-7q59nla",
+                      "conversationId": "conv-1789396512001-qvqemiwq6"
+                    }
+                  ],
+                  "activeTabId": "tab-1789391969409-7q59nla"
+                }
+              },
+              "icon": "bot",
+              "title": "Claudian"
+            }
           }
-        ]
+        ],
+        "currentTab": 5
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 532.5
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -182,16 +203,21 @@
       "daily-notes:Open today's daily note": false,
       "templates:Insert template": false,
       "command-palette:Open command palette": false,
-      "bases:Create new base": false
+      "bases:Create new base": false,
+      "realclaudian:Open Claudian": false,
+      "obsidian-excalidraw-plugin:New drawing": false
     }
   },
-  "active": "135e98261a2cca54",
+  "active": "2548b327ad22bbff",
   "lastOpenFiles": [
-    "me.md",
-    "CLAUDE.md",
     "AGENTS.md",
+    "CLAUDE.md",
+    "README.md",
+    "CLAUDE.md.tmp.1572.1964f2809389",
+    "tickets",
+    "coding",
+    "me.md",
     "OS",
-    "Untitled.md",
     "skills"
   ]
 }
