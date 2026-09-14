@@ -57,6 +57,54 @@ The agreed document is the input. Now it gets built.
 
 The wiki doc owns the **decisions**. The ticket owns the **log**. They link to each other and neither repeats the other.
 
+## Repos
+
+All checked out under `C:\JT Repositories`. Two teams, two Jira projects.
+
+**Jira keys are the source of truth for ticket and design-doc filenames** — `CBS-1234.md`, `AS-5678.md`. Never write `APPSYS-*`; that key does not exist in Jira.
+
+**The `repos:` property uses the local folder name, exactly as it appears on disk.** Lowercase, hyphenated, no GitLab path. That keeps it greppable and unambiguous.
+
+### CBS — Core Business Services (Jira key: `CBS`)
+
+| Local folder | GitLab path |
+| --- | --- |
+| `CoreAPI` | _not recorded_ |
+| `close-job-lambda` | _not recorded_ |
+| `ea-distribution-update` | _not recorded_ |
+| `stop-job-postings-lambda` | _not recorded_ |
+| `call-distribution-update-lambda` | _not recorded_ |
+
+### AS — Apply Systems (Jira key: `AS`)
+
+| Local folder | Name | GitLab path |
+| --- | --- | --- |
+| `clickapply` | ClickApply | `jobtarget/apps/clickapply` |
+| `hosted-apply` | Hosted Apply | `jobtarget/apps/hosted-apply` |
+| `cloud-lookup-api` | Posting Reference Lookup API | `jobtarget/apps/apply-systems/cloud-lookup-api` |
+| `apply-with-jobtarget-api` | Apply With JobTarget API | `jobtarget/apps/apply-systems/apply-with-jobtarget-api` |
+| `apply-with-jobtarget-widget` | Apply With JobTarget Widget | `jobtarget/apps/apply-systems/apply-with-jobtarget-widget` |
+| `apply-with-jobtarget-config-ui` | Apply With JobTarget Config UI | `jobtarget/apps/apply-systems/apply-with-jobtarget-config-ui` |
+| `recruitsite-02` | RecruitSite 2.0 | `jobtarget/marketing/recruitsite-02` |
+| `recruitsite-02-configuration-app` | RecruitSite 2.0 Configuration App | `jobtarget/marketing/recruitsite-02-configuration-app` |
+| `recruit-site-job-notification-lambda` | Recruit Site Job Notification Lambda | `jobtarget/marketing/recruit-site-job-notification-lambda` |
+| `jobapplicationapi` | JobApplicationAPI | `jobtarget/core-systems/applications/jobapplicationapi` |
+| `analytics-api` | analytics-api | `jobtarget/apps/apply-systems/analytics-api` |
+| `questionnaire-api` | Questionnaire Api | `jobtarget/apps/apply-systems/questionnaire-api` |
+| `disposition-formatter-lambda` | Disposition Formatter Lambda | `jobtarget/apps/apply-systems/disposition-formatter-lambda` |
+| `disposition-transmitter-lambda` | Disposition Transmitter Lambda | `jobtarget/apps/apply-systems/disposition-transmitter-lambda` |
+| `disposition-listener-lambda` | Disposition Listener Lambda | `jobtarget/apps/apply-systems/disposition-listener-lambda` |
+| `enrichment-manager-lambda` | Enrichment Manager Lambda | `jobtarget/apps/apply-systems/enrichment-manager-lambda` |
+| `delivery-manager-lambda` | Delivery Manager Lambda | `jobtarget/apps/apply-systems/delivery-manager-lambda` |
+| `verification-manager-lambda` | Verification Manager Lambda | `jobtarget/apps/apply-systems/verification-manager-lambda` |
+| `interview-reminder-email` | Interview Reminder Email | `jobtarget/apps/apply-systems/interview-reminder-email` |
+
+### Unassigned
+
+`C:\JT Repositories` holds 50 repos; the 24 above are the ones I actively own. The rest are checked out but **not assigned to a team here** — do not assume CBS or AS for them without asking:
+
+`analytics-aggregator`, `applyagent`, `atsapi-v6`, `auth-api`, `core-api-advisor`, `description-enrichment-lambda`, `descriptionenrichmentauditlambda`, `devtoolkit`, `easy-apply-connector`, `eventprocessorlambda`, `jobs-domain-management-app`, `jobsapi`, `jobseeker-module`, `jt-job-manager-api`, `lambda`, `mcp-servers`, `partner-api`, `partner-event-receiver-lambdas`, `partnermarketplaceapi`, `payments-markorderaspayed`, `posting-distribution-update-v2`, `postingdistributionupdate`, `recruitsite-config-self-configuration-lambda`, `release-notes-generator`, `template-api`, `zzz-anti`
+
 ## Stacks
 
 What I work in. The `ship-tester` uses this shape to know how to run a suite — see [coding/four-agent-pipeline.md](coding/four-agent-pipeline.md).

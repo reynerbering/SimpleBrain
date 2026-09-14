@@ -162,6 +162,8 @@ All coding work runs in two phases, in order. Never start Phase 2 without a Phas
 - Pull title, status, and description from Jira via the Atlassian MCP connector when it is available.
 - If the connector is not authorized or reachable, build the entry from `/raw` and **explicitly mark** the unverified fields (e.g. `status: In Progress (unverified — Jira not reachable)`). Do not guess a status or title.
 - Never invent a Jira key. If the key is unknown, log it as `UNKNOWN-KEY` and flag it in the entry.
+- **The two project keys in play are `CBS` (Core Business Services) and `AS` (Apply Systems)** — both verified against Jira on 2026-09-15. `APPSYS` is Neru's spoken shorthand for Apply Systems and is **not** a Jira key; never write `APPSYS-*` in a filename or a link.
+- Repos live under `C:\JT Repositories`. The team-to-repo inventory is in `README.md`. A repo that is not listed there has no assigned team — ask, do not assume.
 
 **Dates:** always run `date` to get the real current date. Never assume or back-fill a date from memory.
 
@@ -246,6 +248,8 @@ These are conventional starting points, **not verified against any specific repo
 ### Per-repo pinned commands
 
 **Pin the test command per repo before the first pipeline run there.** The Tester stage executes a real suite; without a known runner it guesses, and a guessed green is worse than no test at all. Add a row the first time the pipeline touches a repo — a repo with no row here has not been verified.
+
+Repos are listed in `README.md`; this table records only the ones whose test command has been **verified by actually running it**.
 
 | Repo | Test command | Build command | Confirmed |
 | --- | --- | --- | --- |
