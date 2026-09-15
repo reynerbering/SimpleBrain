@@ -11,7 +11,7 @@ updated: {{date:YYYY-MM-DD}}
 # {{title}}
 
 - **Status:** <status> (<source: jira | unverified>)
-- **Design:** [[wiki/KEY-slug.md]]
+- **Design:** [[wiki/CBS-1234-slug.md]]
 - **Last touched:** {{date:YYYY-MM-DD}}
 
 > `team` is `CBS` or `AS`. Ticket keys are `CBS-*` or `AS-*` only — never `APPSYS-*`.

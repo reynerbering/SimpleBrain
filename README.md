@@ -1,13 +1,16 @@
 ## Folders
 
 - `/raw` — anything I capture: notes, PDFs, screenshots, links
-- `/wiki` — clean notes written by AI
+- `/wiki` — clean notes **and design docs**. The design doc is the folder's main job — see the design doc protocol in [CLAUDE.md](CLAUDE.md)
 - `/archive` — processed `/raw` files land here so I can see what's been handled
-- `/coding` — engineering notes and reusable orchestration prompts
-- `/prompts` — standing prompts run against the vault
+- `/coding` — engineering notes and reusable orchestration prompts, plus `coding/ship/` (the live `/ship` agents, command, and installer) and `coding/ship-workflow.js` (the Workflow-script variant of the same pipeline)
+- `/prompts` — standing prompts run against the vault. Currently empty
 - `/templates` — Obsidian templates for a design doc and a ticket
 - `/tickets` — one file per Jira ticket
-- `/skills` — versioned source of truth for my Claude Code skills
+- `/skills` — versioned source of truth for my Claude Code skills. Installed by `skills/install.ps1`
+- `/user-memory` — template for `~/.claude/CLAUDE.md`, the user-level memory that imports this vault into every repo. Installed by `user-memory/install.ps1`
+
+Root files: [CLAUDE.md](CLAUDE.md) is how agents behave, this file is the folder model and repo inventory, and `AGENTS.md` is just a pointer to both for tools that look for that filename.
 
 ## The Workflow
 
@@ -30,7 +33,7 @@ Nothing gets implemented before the thinking is finished.
 
 The agreed document is the input. Now it gets built.
 
-1. **Branch for the ticket** — `feat/PROJ-1234-<slug>`. Never on `main`.
+1. **Branch for the ticket** — `feat/CBS-1234-<slug>`. Never on `main`.
 2. **Run `/ship`** — the four-agent pipeline: Planner → Coder → Tester → Reviewer. See [coding/four-agent-pipeline.md](coding/four-agent-pipeline.md).
 3. **Feed the Planner the design doc**, not a one-line ask. Phase 1 exists so the spec starts from settled decisions.
 4. **Read `.pipeline/review.md` first**, then the diff. The pipeline never merges — I'm the final gate.
@@ -52,10 +55,12 @@ Both folders carry an Obsidian **Base** — a saved live query that groups notes
 
 | Base | Views |
 | --- | --- |
-| `wiki/design-docs.base` | By repo, By team, By status, Open questions |
+| `wiki/design-docs.base` | By repo, By team, By status, Not yet implemented |
 | `tickets/tickets.base` | By status, By team, By repo |
 
 These read the frontmatter, so the properties are the contract — see the protocols in [CLAUDE.md](CLAUDE.md). A doc with no `repos:` is invisible to the By-repo view.
+
+**Bases filter on properties, not note bodies.** So "Not yet implemented" is `status != implemented` — it is *not* a list of docs carrying an `OPEN QUESTION` marker, and no view can be. To find real open questions, search the vault for `OPEN QUESTION`.
 
 ## Repos
 

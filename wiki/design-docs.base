@@ -28,7 +28,7 @@ views:
       - updated
     group_by: status
   - type: table
-    name: Open questions
+    name: Not yet implemented
     filters:
       and:
         - status != "implemented"

@@ -24,12 +24,14 @@ Read `README.md` for the folder model. This file is the source of truth for *how
 | `/raw` | Inbox. Anything captured: notes, PDFs, screenshots, links. Unprocessed. |
 | `/wiki` | Clean notes **and design docs**. One topic per file, kebab-case. Design docs are named `<KEY>-<slug>.md`. |
 | `/archive` | Processed `/raw` files land here. Permanent, immutable record. |
-| `/coding` | Engineering notes **and** reusable orchestration prompts/workflows for multi-step coding tasks. |
+| `/coding` | Engineering notes **and** reusable orchestration prompts/workflows for multi-step coding tasks. Holds `coding/ship/` — the live `/ship` agents, command, and installer — plus `coding/ship-workflow.js`, the Workflow-script variant of the same pipeline. |
 | `/prompts` | Standing prompts run against the vault. Currently empty. |
 | `/templates` | Obsidian templates for a design doc and a ticket. Set as the Templates plugin folder. |
 | `/tickets` | One file per Jira ticket. See the ticket protocol below. |
 | `/skills` | Versioned source of truth for personal Claude Code skills. Installed to `~/.claude/skills` by `skills/install.ps1`. |
 | `/user-memory` | Template for `~/.claude/CLAUDE.md`, the user-level memory that imports this vault into every repo. Installed by `user-memory/install.ps1`. |
+
+**Root files:** `CLAUDE.md` (this file — how to behave), `README.md` (folder model + repo inventory), `AGENTS.md` (a pointer to the other two, for agents that look for that filename — never put rules in it).
 
 ---
 
@@ -41,9 +43,17 @@ Read `README.md` for the folder model. This file is the source of truth for *how
 - **Implement a ticket** → Phase 2. Run it through the four-agent pipeline in `coding/four-agent-pipeline.md`, with the design doc as the input. This is the default path for ticket work, not an option.
 - **Answer questions** → read `/wiki`, `/tickets`, and `/archive` to answer ad-hoc questions about past thinking and past work.
 - **Install skills** → run `skills/install.ps1` after any `git pull` that touches `/skills`. Same vault-is-source pattern as `coding/ship/install.ps1`.
+- **Install the `/ship` pipeline** → run `coding/ship/install.ps1` to put the four `ship-*` agents and the `/ship` command in `~/.claude/`. Installs globally at the user level, so `/ship` works in every repo with nothing checked into any of them. Re-run after any `git pull` that touches `coding/ship/`.
 - **Install user memory** → run `user-memory/install.ps1` to point `~/.claude/CLAUDE.md` at this vault. Resolves the vault path per machine, so it works from any checkout location.
 
-**Skills — where they come from.** `/skills` holds all 48. 23 of them originate from the `npx agents` installer, which writes to `~/.agents/skills`; a `SessionStart` hook (`~/.claude/sync-skills.sh`) copies that folder into `~/.claude/skills` on every session start. That hook runs **after** this vault's installer and will overwrite those 23 with the upstream copy. So for those, the vault copy is a versioned backup, not the live authority. The other 25 (the `aws-*` set, `cloudwatch`, `investigate-ticket`, `playwriter`, `signing-in-to-aws`) have no upstream — the vault is their only copy. To make the vault authoritative for all 48, retire the `sync-skills.sh` hook and update the 23 by re-syncing `~/.agents/skills` into `/skills` and committing.
+**Three installers, all vault-is-source:** `skills/install.ps1`, `coding/ship/install.ps1`, `user-memory/install.ps1`. After a `git pull` that touches `/skills`, `coding/ship/`, or `/user-memory`, re-run the matching one — the vault is the authority, the installed copy is downstream.
+
+**Skills — where they come from.** `/skills` holds all 48, and `~/.claude/skills` matches it exactly (verified 2026-09-15, both directions).
+
+- **22 have an upstream.** They come from the `npx agents` installer, which writes to `~/.agents/skills`; a `SessionStart` hook (`~/.claude/sync-skills.sh`) copies that folder into `~/.claude/skills` on every session start. The hook runs **after** this vault's installer and overwrites those 22 with the upstream copy — so for them the vault copy is a versioned backup, not the live authority.
+- **26 have no upstream** — the vault is their only copy: the 20 `aws-*` skills plus `amazon-bedrock`, `launch-with-aws`, `cloudwatch`, `investigate-ticket`, `playwriter`, `signing-in-to-aws`. Note that `amazon-bedrock` and `launch-with-aws` are AWS skills that do **not** carry the `aws-` prefix — don't reach for a `aws-*` glob to find this set.
+- **`~/.agents/skills` actually holds 23, not 22.** The 23rd is `code-review`, and the hook's `EXCLUDE` list skips it deliberately so it cannot shadow Claude Code's built-in `/code-review`. It is intentionally absent from both `/skills` and `~/.claude/skills`. That exclusion is why 22 + 26 = 48 rather than 23 + 25.
+- **To make the vault authoritative for all 48**, retire the `sync-skills.sh` hook and update the 22 by re-syncing `~/.agents/skills` into `/skills` and committing.
 
 ---
 
@@ -64,7 +74,7 @@ All coding work runs in two phases, in order. Never start Phase 2 without a Phas
 
 ## Design Doc Protocol
 
-**Location:** `/wiki/<JIRA-KEY>-<slug>.md` — e.g. `wiki/PROJ-1234-rate-limiting.md`.
+**Location:** `/wiki/<JIRA-KEY>-<slug>.md` — e.g. `wiki/CBS-1234-rate-limiting.md`.
 
 - Work that started as a raw idea with no ticket uses a bare kebab-case slug (`wiki/agent-memory-compaction.md`). Rename it through Obsidian once a key exists.
 - One design doc per unit of work. It is **living** — amended after implementation, never superseded by a second file.
@@ -106,7 +116,7 @@ updated: YYYY-MM-DD
 # CBS-1234 — <short title>
 
 - **Status:** decided | in progress | implemented | superseded
-- **Ticket:** [[tickets/PROJ-1234.md]]
+- **Ticket:** [[tickets/CBS-1234.md]]
 - **Grilled:** YYYY-MM-DD via /grill-me
 - **Last touched:** YYYY-MM-DD
 
@@ -153,7 +163,7 @@ updated: YYYY-MM-DD
 
 ## Jira Ticket Protocol
 
-**Location:** `/tickets/<JIRA-KEY>.md` — one file per ticket, named by key (e.g. `PROJ-1234.md`). A ticket accumulates dated entries over its life; never split one ticket across multiple files.
+**Location:** `/tickets/<JIRA-KEY>.md` — one file per ticket, named by key (e.g. `CBS-1234.md`). A ticket accumulates dated entries over its life; never split one ticket across multiple files.
 
 **Every ticket file carries:**
 
@@ -182,7 +192,7 @@ updated: YYYY-MM-DD
 
 - Phase 1 first: the ticket must have a design doc in `/wiki` before the pipeline runs. No doc, no pipeline.
 - Every ticket that involves writing code runs through `coding/four-agent-pipeline.md`: Planner → Coder → Tester → Reviewer.
-- Work on a branch named for the ticket (e.g. `feat/PROJ-1234-<slug>`). Never run the pipeline on `main`.
+- Work on a branch named for the ticket (e.g. `feat/CBS-1234-<slug>`). Never run the pipeline on `main`.
 - The pipeline **never merges**. The reviewer's verdict is a recommendation; Neru is the final gate.
 - Log the run in the ticket entry: verdict, what the reviewer flagged, and where the `.pipeline/` handoff files live.
 - If a stage gate trips — spec has `OPEN QUESTION`, tests fail, verdict is `NEEDS WORK` or `BLOCK` — that goes in **Blockers / Open questions**, not silently retried.
@@ -205,7 +215,7 @@ updated: YYYY-MM-DD
 # CBS-1234 — <ticket title>
 
 - **Status:** <status> (<source: jira | unverified>)
-- **Design:** [[wiki/PROJ-1234-<slug>.md]]
+- **Design:** [[wiki/CBS-1234-<slug>.md]]
 - **Last touched:** YYYY-MM-DD
 
 ## YYYY-MM-DD
