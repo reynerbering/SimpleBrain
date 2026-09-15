@@ -85,6 +85,9 @@ Cache::store('valkey')->put($key, $value, $ttlSeconds);
 Cache keys follow dotted namespaces the `valkey:clear` command matches on: `microsite.{slug}.home`, `sections.{siteId}.{page}.{jobid}.{postingId}`, `jobdetail.{jobid}`, `applywidget.{jobid}.{postingId}`, `jobstatus.{jobid}`, `location.{jobid}`, `hashlookup.{hash}`. **`company-top` sections are intentionally NOT cached** so job-list pagination stays correct — preserve this when editing `getSections()`.
 
 ### Models / DB conventions
+
+The MariaDB MCP servers (`mariadb-qa|uat|prod`) point at this app's RDS instances — see [the database routing protocol](../../protocols/databases.md) for hosts, environments and write safety.
+
 Eloquent models (`Microsite`, `JobPosting`, `PostingSettings`, `JobList`, `MicrositePages`, `MicrositeSections`, `MicrositeComponents`, and their `*Settings`, `MicrositeBranding`, `MicrositeDivisions`) are thin: relations + query scopes, empty `$fillable` (read-heavy app). Prefer scopes (`->posting($jobid)`, `->slug($slug)`, `->joblist($id)`, `->featured()`) over raw wheres. Default DB connection is **MySQL** (`DB_CONNECTION=mysql`); RDS enforces `require_secure_transport=ON`, so `config/database.php` auto-resolves the RDS CA bundle (env `MYSQL_ATTR_SSL_CA` → `/etc/ssl/certs/rds-global-bundle.pem` → `certs/rds-global-bundle.pem`).
 
 ### External services (via env)

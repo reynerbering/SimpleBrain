@@ -20,7 +20,7 @@ This note holds **only my own additions on top of it**, imported via
 
 ## My additions
 
-_(empty — nothing recorded yet)_
+- **Databases** — CoreAPI owns both the `64recs67o` MSSQL DBs and the `defaultlocationDB` Postgres cluster. Server names, environments and write safety are in [the database routing protocol](../../protocols/databases.md) — the only copy.
 
 <!-- Add personal-only items here: sandbox URLs, local DB creds pattern,
      preferred test filters, habits that are mine and not the team's.

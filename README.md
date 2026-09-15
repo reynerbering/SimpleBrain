@@ -13,6 +13,7 @@ A personal second brain: raw capture in, clean notes and shipped tickets out.
 | [tickets.md](protocols/tickets.md) | Ticket file location, entry shape, sourcing from Jira, pipeline logging | travels |
 | [frontmatter.md](protocols/frontmatter.md) | The property contract and the Bases that consume it | travels |
 | [coding-standards.md](protocols/coding-standards.md) | Stacks, resolution order, per-repo pinned test commands | travels |
+| [databases.md](protocols/databases.md) | Which DB MCP server belongs to which project, environments, write safety | travels |
 | [repo-memory.md](protocols/repo-memory.md) | Where repo CLAUDE.md content lives, and which way it is imported | travels |
 | [wiki-voice.md](protocols/wiki-voice.md) | How anything written into the vault should read | travels |
 | [vault-map.md](protocols/vault-map.md) | The folder model and what each root file owns | vault-only |
