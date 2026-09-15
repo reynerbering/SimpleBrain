@@ -3,7 +3,7 @@ You are working in a personal second brain owned by a Senior Software Developer.
 1. **Notes** — turn raw capture into clean, durable entries in `/wiki`.
 2. **Coding** — engineering notes, reusable orchestration prompts, and Jira ticket records.
 
-Read `README.md` for the folder model. This file is the source of truth for *how to behave*.
+This file holds **who Neru is, what to do, and the hard rules**. Every protocol lives in `/protocols`, one file per topic, each the single source of truth for it. This file imports the ones that must travel to code repos and links the rest.
 
 ---
 
@@ -13,303 +13,77 @@ Read `README.md` for the folder model. This file is the source of truth for *how
 - **Role:** Senior Software Developer
 - **Topics:** software engineering core (architecture, system design, code quality, testing, debugging, refactoring, performance), AI/LLM tooling (agents, prompt engineering, Claude Code workflows, RAG, automation), product & business (strategy, roadmaps, stakeholder work, delivery tradeoffs), and Jira ticket work.
 - **Voice preference:** bulleted and scannable. Short headers, heavy bullets, light prose. Optimized for skimming later.
-- **Not wanted in the wiki:** motivational filler, executive summaries on short entries, invented facts or plausible-sounding guesses. Emojis are fine.
-
----
-
-## Vault Map
-
-| Folder | Purpose |
-| --- | --- |
-| `/raw` | Inbox. Anything captured: notes, PDFs, screenshots, links. Unprocessed. |
-| `/wiki` | Clean notes **and design docs**. One topic per file, kebab-case. Design docs are named `<KEY>-<slug>.md`. |
-| `/archive` | Processed `/raw` files land here. Permanent, immutable record. |
-| `/coding` | Engineering notes **and** reusable orchestration prompts/workflows for multi-step coding tasks. Holds `coding/ship/` — the live `/ship` agents, command, and installer — plus `coding/ship-workflow.js`, the Workflow-script variant of the same pipeline. |
-| `/prompts` | Standing prompts run against the vault. Currently empty. |
-| `/templates` | Obsidian templates for a design doc and a ticket. Set as the Templates plugin folder. |
-| `/tickets` | One file per Jira ticket. See the ticket protocol below. |
-| `/skills` | Versioned source of truth for personal Claude Code skills. Installed to `~/.claude/skills` by `skills/install.ps1`. |
-| `/user-memory` | Template for `~/.claude/CLAUDE.md`, the user-level memory that imports this vault into every repo. Installed by `user-memory/install.ps1`. |
-
-**Root files:** `CLAUDE.md` (this file — how to behave), `README.md` (folder model + repo inventory), `AGENTS.md` (a pointer to the other two, for agents that look for that filename — never put rules in it).
+- **Not wanted:** motivational filler, executive summaries on short entries, invented facts or plausible-sounding guesses. Emojis are fine.
 
 ---
 
 ## Common Tasks
 
-- **Log ticket work** → create or append to `/tickets/<KEY>.md` following the ticket protocol.
+- **Log ticket work** → create or append to `/tickets/<KEY>.md` per the ticket protocol.
 - **Coding orchestration** → check `/coding` for an existing prompt or workflow before inventing a new one. If a multi-step coding task recurs, write it down in `/coding` as a reusable prompt.
-- **Think through a ticket or idea** → Phase 1. Run `/grill-me`, `/grill-with-docs`, or `/grilling`, then file the agreed output as a design doc in `/wiki`. See the design doc protocol below.
-- **Implement a ticket** → Phase 2. Run it through the four-agent pipeline in `coding/four-agent-pipeline.md`, with the design doc as the input. This is the default path for ticket work, not an option.
+- **Think through a ticket or idea** → Phase 1. Run `/grill-me`, `/grill-with-docs`, or `/grilling`, then file the agreed output as a design doc in `/wiki`.
+- **Implement a ticket** → Phase 2. Run it through `/ship`, with the design doc as the input. This is the default path for ticket work, not an option.
 - **Answer questions** → read `/wiki`, `/tickets`, and `/archive` to answer ad-hoc questions about past thinking and past work.
-- **Install skills** → run `skills/install.ps1` after any `git pull` that touches `/skills`. Same vault-is-source pattern as `coding/ship/install.ps1`.
-- **Install the `/ship` pipeline** → run `coding/ship/install.ps1` to put the four `ship-*` agents and the `/ship` command in `~/.claude/`. Installs globally at the user level, so `/ship` works in every repo with nothing checked into any of them. Re-run after any `git pull` that touches `coding/ship/`.
-- **Install user memory** → run `user-memory/install.ps1` to point `~/.claude/CLAUDE.md` at this vault. Resolves the vault path per machine, so it works from any checkout location.
-
-**Three installers, all vault-is-source:** `skills/install.ps1`, `coding/ship/install.ps1`, `user-memory/install.ps1`. After a `git pull` that touches `/skills`, `coding/ship/`, or `/user-memory`, re-run the matching one — the vault is the authority, the installed copy is downstream.
-
-**Skills — where they come from.** `/skills` holds all 48, and `~/.claude/skills` matches it exactly (verified 2026-09-15, both directions).
-
-- **22 have an upstream.** They come from the `npx agents` installer, which writes to `~/.agents/skills`; a `SessionStart` hook (`~/.claude/sync-skills.sh`) copies that folder into `~/.claude/skills` on every session start. The hook runs **after** this vault's installer and overwrites those 22 with the upstream copy — so for them the vault copy is a versioned backup, not the live authority.
-- **26 have no upstream** — the vault is their only copy: the 20 `aws-*` skills plus `amazon-bedrock`, `launch-with-aws`, `cloudwatch`, `investigate-ticket`, `playwriter`, `signing-in-to-aws`. Note that `amazon-bedrock` and `launch-with-aws` are AWS skills that do **not** carry the `aws-` prefix — don't reach for a `aws-*` glob to find this set.
-- **`~/.agents/skills` actually holds 23, not 22.** The 23rd is `code-review`, and the hook's `EXCLUDE` list skips it deliberately so it cannot shadow Claude Code's built-in `/code-review`. It is intentionally absent from both `/skills` and `~/.claude/skills`. That exclusion is why 22 + 26 = 48 rather than 23 + 25.
-- **To make the vault authoritative for all 48**, retire the `sync-skills.sh` hook and update the 22 by re-syncing `~/.agents/skills` into `/skills` and committing.
+- **Install something** → see [protocols/skills.md](protocols/skills.md).
 
 ---
 
-## The Two-Phase Workflow
+## Protocols — imported
 
-All coding work runs in two phases, in order. Never start Phase 2 without a Phase 1 document.
+These travel. They apply in every repo, not just the vault, and are injected into every session.
 
-| Phase      | What happens                                                         | Tool                                         | Output                                       |
-| ---------- | -------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------- |
-| 1 — Decide | Relentless interview until Neru and the agent share an understanding | `/grill-me`, `/grill-with-docs`, `/grilling` | `/wiki/<KEY>-<slug>.md`                      |
-| 2 — Build  | Planner → Coder → Tester → Reviewer                                  | `/ship`                                      | code on a branch + `/tickets/<KEY>.md` entry |
+@protocols/workflow.md
 
-- **Phase 1 is not optional for non-trivial work.** If asked to implement something with no design doc, say so and offer to grill it first.
-- **Phase 2 reads Phase 1.** Hand the Planner the design doc, not a one-line restatement of the ask.
-- **The document is the contract.** If the pipeline contradicts a decision in it, that is a stop and a revision — not a silent override.
+@protocols/design-docs.md
 
----
+@protocols/tickets.md
 
-## Design Doc Protocol
+@protocols/frontmatter.md
 
-**Location:** `/wiki/<JIRA-KEY>-<slug>.md` — e.g. `wiki/CBS-1234-rate-limiting.md`.
+@protocols/coding-standards.md
 
-- Work that started as a raw idea with no ticket uses a bare kebab-case slug (`wiki/agent-memory-compaction.md`). Rename it through Obsidian once a key exists.
-- One design doc per unit of work. It is **living** — amended after implementation, never superseded by a second file.
-
-**Division of labour with `/tickets`:**
-
-- The **wiki doc owns decisions** — every choice and the reasoning behind it, from both phases.
-- The **ticket owns the log** — dated activity, what was touched, pipeline verdict, blockers.
-- They link to each other. Never duplicate decisions into the ticket; link to the wiki doc instead.
-
-**Writing it:**
-
-- Same voice as the rest of `/wiki`: bulleted, scannable, terse. No executive summary, no filler.
-- **Preserve Neru's own words** for the decisions. The grilling output is a record of what *he* decided — do not sand his reasoning into neutral tone.
-- **Rejected options are content, not clutter.** The reason an option was discarded is the most valuable thing in the file six months later.
-- Record open questions as `OPEN QUESTION` — the same marker the Planner stops on.
-- Never invent a decision that was not actually reached. An unresolved branch is an open question, not a default.
-
-**After the pipeline runs**, append a dated revision to the same file — do not rewrite history above it:
-
-- What the pipeline changed about the plan, and why.
-- Any decision the Reviewer overturned or flagged.
-- New open questions the implementation surfaced.
-
-**Template:**
-
-```markdown
----
-type: design-doc
-ticket: CBS-1234
-team: CBS
-status: decided
-repos:
-  - CoreAPI
-grilled: YYYY-MM-DD
-updated: YYYY-MM-DD
----
-
-# CBS-1234 — <short title>
-
-- **Status:** decided | in progress | implemented | superseded
-- **Ticket:** [[tickets/CBS-1234.md]]
-- **Grilled:** YYYY-MM-DD via /grill-me
-- **Last touched:** YYYY-MM-DD
-
-## Problem
-
-- What's actually broken or missing, in Neru's framing.
-
-## Decisions
-
-- **<decision>** — because <reasoning>.
-- **<decision>** — because <reasoning>.
-
-## Rejected
-
-- **<option>** — rejected because <reasoning>.
-
-## Scope
-
-**In**
-- ...
-
-**Out**
-- ...
-
-## Open questions
-
-- OPEN QUESTION: ...
+@protocols/wiki-voice.md
 
 ---
 
-## YYYY-MM-DD — post-implementation revision
+## Protocols — vault-only
 
-**Changed**
-- <decision> revised to <new> — because <what the build revealed>.
+These govern the vault itself and do **not** apply inside a code repo. Read them when working in the vault.
 
-**Reviewer flagged**
-- ...
+- [protocols/vault-map.md](protocols/vault-map.md) — the folder model and what each root file owns.
+- [protocols/skills.md](protocols/skills.md) — where the skills come from, and the three installers.
 
-**New open questions**
-- ...
-```
+**Reference data**, also single-source:
 
----
-
-## Jira Ticket Protocol
-
-**Location:** `/tickets/<JIRA-KEY>.md` — one file per ticket, named by key (e.g. `CBS-1234.md`). A ticket accumulates dated entries over its life; never split one ticket across multiple files.
-
-**Every ticket file carries:**
-
-- Jira key, ticket title, current status
-- A link to its design doc in `/wiki` (see the design doc protocol above)
-- A dated log — one dated section per working session, newest at the bottom
-
-**Every dated entry captures:**
-
-- **Did** — what was actually done
-- **Decisions** — technical decisions made, with the reasoning behind them
-- **Touched** — repos, branches, PRs, and key files changed
-- **Blockers / Open questions** — what's stuck, who's needed, what's unresolved
-
-**Sourcing ticket data:**
-
-- Pull title, status, and description from Jira via the Atlassian MCP connector when it is available.
-- If the connector is not authorized or reachable, build the entry from `/raw` and **explicitly mark** the unverified fields (e.g. `status: In Progress (unverified — Jira not reachable)`). Do not guess a status or title.
-- Never invent a Jira key. If the key is unknown, log it as `UNKNOWN-KEY` and flag it in the entry.
-- **The two project keys in play are `CBS` (Core Business Services) and `AS` (Apply Systems)** — both verified against Jira on 2026-09-15. `APPSYS` is Neru's spoken shorthand for Apply Systems and is **not** a Jira key; never write `APPSYS-*` in a filename or a link.
-- Repos live under `C:\JT Repositories`. The team-to-repo inventory is in `README.md`. A repo that is not listed there has no assigned team — ask, do not assume.
-
-**Dates:** always run `date` to get the real current date. Never assume or back-fill a date from memory.
-
-**Implementation — the four-agent pipeline:**
-
-- Phase 1 first: the ticket must have a design doc in `/wiki` before the pipeline runs. No doc, no pipeline.
-- Every ticket that involves writing code runs through `coding/four-agent-pipeline.md`: Planner → Coder → Tester → Reviewer.
-- Work on a branch named for the ticket (e.g. `feat/CBS-1234-<slug>`). Never run the pipeline on `main`.
-- The pipeline **never merges**. The reviewer's verdict is a recommendation; Neru is the final gate.
-- Log the run in the ticket entry: verdict, what the reviewer flagged, and where the `.pipeline/` handoff files live.
-- If a stage gate trips — spec has `OPEN QUESTION`, tests fail, verdict is `NEEDS WORK` or `BLOCK` — that goes in **Blockers / Open questions**, not silently retried.
-- Skipping the pipeline **and Phase 1** is allowed for trivial work (one-line fix, config tweak, revert). Say so in the entry and why.
-
-**Template:**
-
-```markdown
----
-type: ticket
-ticket: CBS-1234
-team: CBS
-status: In Progress
-source: jira
-repos:
-  - CoreAPI
-updated: YYYY-MM-DD
----
-
-# CBS-1234 — <ticket title>
-
-- **Status:** <status> (<source: jira | unverified>)
-- **Design:** [[wiki/CBS-1234-<slug>.md]]
-- **Last touched:** YYYY-MM-DD
-
-## YYYY-MM-DD
-
-**Did**
-- ...
-
-**Decisions**
-- ... — because ...
-
-**Touched**
-- repo/branch, PR #, files
-
-**Pipeline**
-- Verdict: SHIP | NEEDS WORK | BLOCK | not run (<why>)
-- Stopped at: <stage, if it halted early>
-- Reviewer flagged: ...
-
-**Blockers / Open questions**
-- ...
-```
-
----
-
-## Frontmatter Contract
-
-The Bases in `wiki/design-docs.base` and `tickets/tickets.base` read these properties. A missing property means the note silently drops out of a view — so treat them as required, not decorative.
-
-| Property | Applies to | Values |
-| --- | --- | --- |
-| `type` | both | `design-doc` or `ticket` |
-| `ticket` | both | `CBS-1234` or `AS-5678`. Never `APPSYS-*`. |
-| `team` | both | `CBS` or `AS` |
-| `status` | design doc | `decided`, `in progress`, `implemented`, `superseded` |
-| `status` | ticket | the Jira status string |
-| `source` | ticket | `jira` or `unverified` |
-| `repos` | both | list of **exact on-disk folder names** from the README repo tables |
-| `grilled` | design doc | date of the Phase 1 session |
-| `updated` | both | date of the last edit — bump it every session |
-
-- **`repos` is a list, always** — even for a single repo. A string breaks the By-repo grouping.
-- Use the on-disk folder name verbatim: `CoreAPI` (PascalCase), `ea-distribution-update`, `apply-with-jobtarget-api`. Not the GitLab path, not the display name.
-- A repo not listed in `README.md` has no assigned team. Ask before inventing one.
+- [README.md](README.md) — the repo inventory and test readiness. The only copy.
+- [coding/four-agent-pipeline.md](coding/four-agent-pipeline.md) — pipeline stages, models, gates. The only copy.
+- [templates/design-doc.md](templates/design-doc.md) and [templates/ticket.md](templates/ticket.md) — the only copies of the templates.
 
 ---
 
 ## Hard Rules
 
+**Vault-only** — do not apply these in a code repo:
+
 1. **Never delete** anything from `/raw` or `/archive`. Move only, never delete.
-2. **Never overwrite** a `/wiki` or `/tickets` entry blindly. Read it first, then merge.
-3. **Never modify** `/archive` after a file lands there — it is a permanent record.
-4. **Never invent facts.** When uncertain, log the uncertainty inside the entry rather than guessing. This applies doubly to ticket keys, statuses, dates, and file paths.
-5. **Move and rename through Obsidian**, not shell `mv`, so links stay intact.
-6. **Commit after meaningful changes** with a clear message (e.g. `wiki: CBS-1234 design doc`, `tickets: AS-5678 log for 2026-09-14`).
+2. **Never modify** `/archive` after a file lands there — it is a permanent record.
+3. **Move and rename through Obsidian**, not shell `mv`, so links stay intact. In a code repo, use normal git operations.
+4. **Commit after meaningful changes** to the vault, with a clear message (e.g. `wiki: CBS-1234 design doc`, `tickets: AS-5678 log for 2026-09-14`). In a code repo, commit or push only when asked.
+
+**Everywhere** — these travel:
+
+5. **Never overwrite** a `/wiki` or `/tickets` entry blindly. Read it first, then merge.
+6. **Never invent facts.** When uncertain, log the uncertainty inside the entry rather than guessing. This applies doubly to ticket keys, statuses, dates, and file paths.
+7. **Always run `date`** for the real current date. Never back-fill from memory.
+8. **When a vault rule and a repo's own conventions conflict inside that repo, the repo wins.** Say so rather than silently applying a vault rule out of context.
 
 ---
 
-## Wiki Voice and Structure
+## One Fact, One Home
 
-- Bulleted and scannable. Short headers, heavy bullets, light prose.
-- Clear, factual, terse. No preamble, no filler, no cheerleading.
-- No executive summary on a short entry — just say the thing.
-- Preserve Neru's own phrasing when it carries signal. Don't sand everything into neutral encyclopedia tone.
-- Headings only when the entry is long enough to need them.
-- Bullets only when the content is genuinely a list.
-- One topic per file. Kebab-case filenames.
-- Link related entries with relative markdown links.
+The rule that keeps the rest true.
 
----
-
-## Coding Standards
-
-**Stacks in play:** .NET (C#) and Node/TypeScript. Anything outside these two is unconfirmed — ask before assuming a language, framework, test runner, or lint setup.
-
-### Stack defaults
-
-These are conventional starting points, **not verified against any specific repo**. Treat them as a first guess to confirm, never as a command to run blind.
-
-| Stack | Test | Build | Notes |
-| --- | --- | --- | --- |
-| .NET (C#) | `dotnet test` | `dotnet build` | Solution-scoped by default; a repo may need `--filter` or a named `.sln`. |
-| Node/TypeScript | `npm test` | `npm run build` | Confirm the package manager first — pnpm and yarn are not interchangeable with npm here. |
-
-### Per-repo pinned commands
-
-**Pin the test command per repo before the first pipeline run there.** The Tester stage executes a real suite; without a known runner it guesses, and a guessed green is worse than no test at all. Add a row the first time the pipeline touches a repo — a repo with no row here has not been verified.
-
-Repos, their stacks, and their real test-readiness are in `README.md`. **11 of the 24 repos have no tests at all** and several declare commands pointing at missing files — see the Test readiness section there before any pipeline run. This table records only commands **verified by actually running them**.
-
-| Repo | Test command | Build command | Confirmed |
-| --- | --- | --- | --- |
-| _(none pinned yet)_ | | | |
-
-### General
-
-- When a coding convention gets decided, write it here rather than rediscovering it each session.
-- **`.pipeline/` is gitignored** in every repo that uses the pipeline. It is scratch handoff state, not source.
+- **Every fact lives in exactly one file.** If you need it somewhere else, link or `@import` — never copy.
+- **Before adding a rule, find its owner** in `/protocols` and add it there. Do not add it to this file or `README.md`.
+- **If you catch the same fact in two places, that is a bug.** Delete one and link to the other; say which you kept.
+- **`@import` lines need a blank line between them.** Two on consecutive lines silently parse as one and the second is dropped with no error.

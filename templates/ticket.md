@@ -14,7 +14,7 @@ updated: {{date:YYYY-MM-DD}}
 - **Design:** [[wiki/CBS-1234-slug.md]]
 - **Last touched:** {{date:YYYY-MM-DD}}
 
-> `team` is `CBS` or `AS`. Ticket keys are `CBS-*` or `AS-*` only — never `APPSYS-*`.
+> Frontmatter rules: [[protocols/frontmatter.md]]. Jira key rules and entry shape: [[protocols/tickets.md]].
 > Delete this blockquote once filled in.
 
 ## {{date:YYYY-MM-DD}}

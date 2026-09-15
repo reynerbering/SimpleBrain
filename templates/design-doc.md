@@ -15,9 +15,7 @@ updated: {{date:YYYY-MM-DD}}
 - **Grilled:** {{date:YYYY-MM-DD}} via /grill-me
 - **Last touched:** {{date:YYYY-MM-DD}}
 
-> Frontmatter rules:
-> `team` is `CBS` or `AS`. `status` is decided | in progress | implemented | superseded.
-> `repos` uses the exact on-disk folder name from the README repo tables — e.g. `CoreAPI`, `ea-distribution-update`.
+> Frontmatter rules: [[protocols/frontmatter.md]]. How to write this doc: [[protocols/design-docs.md]].
 > Delete this blockquote once filled in.
 
 ## Problem
