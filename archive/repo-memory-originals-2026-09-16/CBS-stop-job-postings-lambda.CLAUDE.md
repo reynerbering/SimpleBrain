@@ -1,12 +1,3 @@
----
-type: repo-memory
-team: CBS
-repos:
-  - stop-job-postings-lambda
-consumed_by: "C:\JT Repositories$repo\CLAUDE.md"
-updated: 2026-09-16
----
-
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.

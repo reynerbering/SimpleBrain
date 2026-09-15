@@ -45,6 +45,8 @@ This table records only commands **verified by actually running them**.
 
 If a repo needs something other than the above, put it in **that repo's `CLAUDE.md`**, not here. It travels with the code and works for teammates too.
 
+Where that file's content actually lives — and which of it belongs in the repo versus the vault — is [the repo memory protocol](repo-memory.md).
+
 ```markdown
 ## Commands
 - Test: <exact command>

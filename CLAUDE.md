@@ -42,6 +42,8 @@ These travel. They apply in every repo, not just the vault, and are injected int
 
 @protocols/coding-standards.md
 
+@protocols/repo-memory.md
+
 @protocols/wiki-voice.md
 
 ---
