@@ -18,6 +18,14 @@ updated: 2026-09-17
 > ⚠️ Raw capture from a review of MR !1379. The findings below are verified; the conclusion about
 > *what actually causes the timeouts* is still open. Continue from "Open questions".
 
+## TODO
+
+- [ ] Decide option A (land !1379 as a readability refactor) or option B (hold it) — see [Options](#options)
+- [ ] Find the real root cause: pull `query_hash` / plan history from Query Store or `sys.dm_exec_query_stats` during a burst window — see [Next step to settle it](#next-step-to-settle-it)
+- [ ] Check the `r_order_item_id` column type in `64recs67o` and align `OrderItemLinkEntity.OrderItemId` (`int`) with `OrderItemEntity.Id` (`long`) — kills the `CAST` on the 348M-row table
+- [ ] Verify the prod burst numbers independently in Datadog — currently quoted from the commit message, unverified
+- [ ] Grill this (Phase 1) before any implementation, then set `grilled:` in the frontmatter
+
 ## What was reviewed
 
 - MR [!1379](https://gitlab.com/jobtarget/platform/core-api/CoreAPI/-/merge_requests/1379) — 1 commit `c7b0cb69`, 3 files, off `develop` at `e57e95be`.
