@@ -22,7 +22,9 @@ updated: 2026-09-17
 
 - [ ] Decide option A (land !1379 as a readability refactor) or option B (hold it) — see [Options](#options)
 - [ ] Find the real root cause: pull `query_hash` / plan history from Query Store or `sys.dm_exec_query_stats` during a burst window — see [Next step to settle it](#next-step-to-settle-it)
-- [ ] Check the `r_order_item_id` column type in `64recs67o` and align `OrderItemLinkEntity.OrderItemId` (`int`) with `OrderItemEntity.Id` (`long`) — kills the `CAST` on the 348M-row table
+- [x] ~~Check the `r_order_item_id` column type~~ — **done 2026-09-17, result inverts the plan**: the
+      columns are genuinely `int` vs `bigint` **in the schema**, entities already match. Aligning the
+      entity cannot kill the `CAST`. Re-verify against prod, then decide `ALTER` vs leave. See below.
 - [ ] Verify the prod burst numbers independently in Datadog — currently quoted from the commit message, unverified
 - [ ] Grill this (Phase 1) before any implementation, then set `grilled:` in the frontmatter
 
@@ -97,7 +99,21 @@ OUTER APPLY (
 
 - `OrderItemLinkEntity.OrderItemId` is `int`; `OrderItemEntity.Id` is `long`.
 - EF therefore emits `CAST([r0].[r_order_item_id] AS bigint)`, killing any seek on that column of the 348M-row table.
-- **TODO:** check the real column type in `64recs67o` and align the entity. Likely a cheap genuine win. MSSQL MCP was down 2026-09-17 — not yet verified against the DB.
+- **Checked 2026-09-17** against the **local seeded test container** (`coreapi-test-sql`, db `64recs67o`)
+  — *not prod*, and the test schema may lag. `sys.columns` says:
+
+  | Table | Column | Type |
+  | --- | --- | --- |
+  | `r_orders_items` | `r_order_item_id` | **bigint** |
+  | `r_orders_items_links` | `r_order_item_id` | **int** |
+
+  ⚠️ **This inverts the TODO.** The entities already match the DB — `int` maps an `int` column,
+  `long` maps a `bigint` column. So the `CAST` is **not** an entity/DB mismatch and **cannot be
+  removed by aligning `OrderItemLinkEntity.OrderItemId` to `long`**; doing that would misdeclare the
+  column. The mismatch is **in the schema itself**, across the two sides of the join.
+  - Real options are now: `ALTER` `r_orders_items_links.r_order_item_id` to `bigint` (a DDL change on
+    a 348M-row table — not cheap), or leave it and stop calling it a quick win.
+  - **Must be re-verified against prod `64recs67o`** before acting. MSSQL MCP was down 2026-09-17.
 
 ## Smaller findings
 
@@ -139,5 +155,10 @@ Not decided. Needs grilling.
 4. Call `PostingQueries.GetBasePostingsQuery(...)` for `omitChildPostings` true and false, write `.ToQueryString()` to files.
 5. `git checkout e57e95be -- PostingFilters.cs PostingQueries.cs`, patch `private` → `internal`, rebuild, dump again, `diff`.
 
-Test command used — candidate row for the pinned-commands table in [[protocols/coding-standards.md]]:
-`dotnet test CoreAPI.Test/CoreAPI.Test.csproj --filter "FullyQualifiedName~<class>"`. **Verified by running it** on CoreAPI, 2026-09-17. Build: `dotnet build CoreAPI.Test/CoreAPI.Test.csproj`. .NET 6 runtime present alongside SDK 9.0.317.
+Test command is now **pinned in [[protocols/coding-standards.md]]** — the only copy. Filter a single
+fixture with `--filter "FullyQualifiedName~<class>"`. .NET 6 runtime present alongside SDK 9.0.317.
+
+⚠️ **The suite needs the local MSSQL container up** (`docker start coreapi-test-sql`). Without it
+the run is 192 failed / 175 passed — all environmental. That precondition was not known when this
+doc was written on 2026-09-17; the earlier note here claimed the command was verified without
+recording it. Details are in the protocol, not repeated here.

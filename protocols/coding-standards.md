@@ -37,7 +37,20 @@ This table records only commands **verified by actually running them**.
 
 | Repo | Test command | Build command | Confirmed |
 | --- | --- | --- | --- |
-| _(none pinned yet)_ | | | |
+| `CoreAPI` | `dotnet test CoreAPI.Test/CoreAPI.Test.csproj` — **needs the local MSSQL container up**, see note | `dotnet build CoreAPI.Test/CoreAPI.Test.csproj` | 2026-09-17 — 367/367 green, 5m40s |
+
+⚠️ **`CoreAPI` is only green with a local SQL Server on `localhost:1433`.** Without it the same
+command returns **192 failed / 175 passed** — every failure an identical
+`OneTimeSetUp: SqlException: A network-related or instance-specific error occurred`, not one real
+assertion. 192 of the 367 tests spin a `WebApplicationFactory` against a real DB (Respawn).
+Setup is the repo's own — `CoreAPI.Test/README.md` and the repo `CLAUDE.md`; **the repo wins, do not
+restate it here**. Two gotchas worth knowing before blaming the code:
+
+- The container **stops every time Docker Desktop restarts**, so a red run usually means "not running",
+  not "broken".
+- Reuse the existing seeded container (`docker start coreapi-test-sql`) rather than `docker run`ing a
+  fresh one — there is **no volume mount**, so the seeded `64recs67o` and `OCApi` databases live in
+  that container's layer. A new container starts empty and fails differently.
 
 **Before any pipeline run, read the test-readiness section in [`README.md`](../README.md)** — the only copy. 11 of the 24 owned repos have no tests at all, and several declare commands pointing at missing files.
 
