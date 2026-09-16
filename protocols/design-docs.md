@@ -26,6 +26,17 @@
 - Record open questions as `OPEN QUESTION` — the same marker the Planner stops on.
 - Never invent a decision that was not actually reached. An unresolved branch is an open question, not a default.
 
+**Before marking a doc `status: decided`, run `grep -rn "OPEN QUESTION" wiki/`** and clear every marker
+that has actually been answered.
+
+- Writing the Decisions section does **not** remove the markers. A doc can end up asserting
+  "Q1 decided" and "Q1 asked, unanswered" at the same time — and would then **halt the Planner**
+  ([`coding/four-agent-pipeline.md`](../coding/four-agent-pipeline.md)) on a question that is closed.
+- No Base can catch this: Bases filter on properties, not note bodies
+  ([frontmatter.md](frontmatter.md)). The grep is the only check.
+- Leave the marker only on what is genuinely unresolved — unrun gates, undecided branches. Point
+  everything else at the Decisions section rather than restating it.
+
 ## After the pipeline runs
 
 Append a dated revision to the same file — do not rewrite history above it:
