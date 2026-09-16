@@ -343,6 +343,55 @@ re-finds those postings every cycle and can never fix them. Not in the ticket.
   `recruiter_id` DBNull coalesces to `0` in the hash (`AnalyticsService.cs:266`).
 
 
+## Implementation note — raw SQL vs LINQ for the targets query
+
+Verified 2026-09-17 by building the LINQ rewrite and dumping the real generated SQL
+(`ToQueryString()` **plus** a capture `DbCommandInterceptor` registered after `AddQueryHints()`,
+executed against the local `coreapi-test-sql` container). Scratch fixture deleted afterwards.
+
+**The initial objections to LINQ were wrong.** Both are already solved in this repo:
+
+- `.WithHint(TableHint.Nolock)` exists — `CoreAPI.DataAccess/Interceptors/QueryHintInterceptor.cs`,
+  already used in `JobFeatures/Common.cs:47` and `OrderQueries.cs:74`.
+- The varchar/nvarchar sargability trap is closed: `JobFeatureEntity.Value1` is `.IsUnicode(false)`
+  with a comment citing **CBS-4432**. Confirmed — EF emits `@__postingIdText_1 varchar(100)`.
+
+**The UNION shape translates correctly.** Two independently seekable branches, same join structure,
+a real `UNION` — not the `OR` form the V1 comment forbids.
+
+**But `WITH (Nolock)` only lands on the `FROM` tables, never on a `JOIN`.** The interceptor's regex
+matches `FROM x AS y` only — the alternation covers whitespace/CR/LF between the tokens,
+but there is no `JOIN` branch in the pattern at all. See `QueryHintInterceptor.cs` for the
+literal expression; it is not reproduced here because its escapes do not survive markdown.
+
+| Table reference | V1 raw SQL | LINQ + `WithHint` |
+| --- | --- | --- |
+| `jobs_sites` (branch 1 FROM) | NOLOCK | **NOLOCK** |
+| `jobs` (branch 1 LEFT JOIN) | NOLOCK | **none** |
+| `jobs_features` (branch 2 FROM) | NOLOCK | **NOLOCK** |
+| `jobs_sites` (branch 2 INNER JOIN) | NOLOCK | **none** |
+| `jobs` (branch 2 LEFT JOIN) | NOLOCK | **none** |
+
+Three of five references would take shared locks V1 does not — on every posting create, against
+`jobs`, the table `JobFeatures/Common.cs:39` documents as *"the chronic deadlock victim against
+concurrent job writes (SqlException 1205)"*.
+
+**Decision: keep raw SQL for the targets query**, with a comment citing the interceptor limitation so
+this is not re-litigated. The sproc call still moves to `Database.ExecuteSqlRawAsync` — EF has no
+stored-procedure API, but that removes all the `DbCommand` / reader / connection-lifecycle plumbing.
+
+Two by-products:
+
+- **EF Core 7 cannot `Union` after a positional-record projection** —
+  *"Unable to translate set operation after client projection has been applied."* An anonymous-type
+  projection is required, mapping to a named type client-side after `ToListAsync`.
+- ⚠️ **`OrderQueries.cs:74` uses `.WithHint(TableHint.ForceSeek)`** and is subject to the same
+  FROM-only limitation. If that query joins, only its FROM table is being hinted. **Pre-existing, not
+  introduced by CBS-4436 — worth its own look.**
+- `JobEntity.DivisionId` maps to column **`recruiter_id`** (`JobEntity.cs:54`). V1 calls this value
+  `recruiterId`; `HostedApplyUrlGenerator.cs:76` calls the same column `divisionId`. Same column,
+  same hash input — "correcting" either name would change every hash ever generated.
+
 ## Scope
 
 **In** — provisionally, pending Q1/Q2:
