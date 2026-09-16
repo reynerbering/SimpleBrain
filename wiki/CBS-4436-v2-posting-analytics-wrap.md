@@ -416,73 +416,51 @@ Two by-products:
 
 ## Open questions
 
-The decision tree as mapped. **Q1 was asked and is awaiting my answer. Q2–Q9 are mapped but not
-yet put to me.** Recommendations are the agent's, not my decisions.
+**Q1–Q9, testing and process are all RESOLVED — see [Decisions](#decisions), which carries each
+answer and its reasoning.** They are deliberately not restated here; one fact, one home.
 
-- **OPEN QUESTION — Q1 (asked, unanswered): gate the decision on the wrap-rate query, or decide on
-  existing evidence?** The ticket makes discovery question 1 the deciding input; it is currently
-  unobtainable. Options: **(a)** decide now, note the query as unrun *(agent's rec)*; **(b)** block
-  Phase 1 until MSSQL access is restored; **(c)** decide direction now, make the query a required
-  check before Phase 2 ships.
-  - Agent's argument for (a): the rate changes urgency, not direction — 13+22 postings that missed
-    every backstop is existence proof of a permanent-null path, and a rate cannot refute it.
-  - Honest counter it conceded: if the rate came back ~100% for those channels, that would argue the
-    13 were a one-off window and push toward "widen the backstop" over "change the create path."
-    So the query **cannot flip whether to fix, but could flip where.**
+The `OPEN QUESTION` marker below is load-bearing: the Planner stops on it
+([`coding/four-agent-pipeline.md`](../coding/four-agent-pipeline.md)). Only genuinely unresolved
+items carry it.
 
-- **OPEN QUESTION — Q2: inline wrap at V2 create, vs widen an existing backstop, vs both?**
-  Widening = drop the `campaign_posting` inner join from `PM.usp_get_jobs_applyurl_not_wrapped` so
-  the sweep covers non-campaign postings. The two are not exclusive, and they have different blast
-  radii: the sweep change is one sproc and affects every channel at once; the inline change is
-  scoped to core-api but leaves the other unwrapped writers alone.
+- **OPEN QUESTION — GATE 1: the `RegisterJobs` flip-count experiment has not been run.**
+  Blocked on credentials, not access — core-api requires `X-API-KEY`; Neru runs it, the key stays in
+  his environment. Runner: `cbs4436-experiment.ps1` (read-only by default, prod write under
+  `-Execute`). **This can invalidate the entire direction:** if most of the 35 postings stay null,
+  the ticket's root cause is wrong and Q2 must be reopened before any implementation.
 
-- **OPEN QUESTION — Q3: if inline — which seam?** Two candidates, and the transaction facts above
-  make this load-bearing, not cosmetic:
-  - **(i)** inside `PostingCreateCommands` (`WriteSinglePosting`/`WriteBundlePostings`), as the
-    ticket proposes — in-transaction, replayed on retry, and requires plumbing the salt into an
-    `internal static` class.
-  - **(ii)** in `PostingService.CreatePostingAsync` **after** `PostingCreateCommands` returns —
-    out-of-transaction, once only, salt already in scope, and it **mirrors V1's actual shape**
-    (after the write, non-fatal, logged). It would sit right next to the existing SNS notification,
-    which is already a post-commit side effect on that exact seam.
-  - Worth grilling: (ii) looks strictly better on every constraint found so far. Is there a reason
-    the ticket proposed (i) that I know and the code does not show?
+- **OPEN QUESTION — GATE 2: both sprocs were read from a 2026-07-08 DataGrip cache snapshot, not
+  live.** `usp_CreateWrappedUrl` and `PM.usp_get_jobs_applyurl_not_wrapped` must be re-read against
+  prod `64recs67o` before Phase 2 ships. MSSQL MCP was down all of 2026-09-17. Everything in
+  "Sproc facts" — including the three-causes finding that drove Q2 — rests on that snapshot.
 
-- **OPEN QUESTION — Q4: failure semantics.** V1 is non-fatal — logs and swallows, posting still
-  returns 200. Does V2 match that, or should a failed wrap fail the create? (Matching V1 keeps the
-  backstops meaningful; failing hard makes the gap loud but can reject a posting that is otherwise
-  fine.)
+- **OPEN QUESTION — does Q3 deserve a second look?** Q3 chose seam (ii) partly on the argument that
+  a raw `SqlCommand` inside `ExecuteInTransactionWithRetryAsync` sits on its own connection and
+  self-deadlocks. Using `Database.ExecuteSqlRawAsync` instead puts the call on the context's **own**
+  connection and transaction, so that specific deadlock does not arise and **seam (i) is more viable
+  than the Q3 write-up claims**. (ii) still looks right on the surviving arguments — retry replay,
+  transaction lock-hold time on hot tables, and Q4's non-fatal contract only being coherent
+  post-commit. **Raised with Neru 2026-09-17; not yet answered.**
 
-- **OPEN QUESTION — Q5: media-package children.** V1 wraps the full target set via the UNION query.
-  Does V2 do the same, or only the posting itself? Note `WriteBundlePostings` already iterates
-  children in-process — V2 may be able to wrap each child as it is written and skip the UNION query
-  entirely, which would be cheaper than V1.
+- **OPEN QUESTION — the reporter has not been told** that the ticket's proposed seam is unsafe, that
+  there are three causes rather than one, or about the third writer. Worth a comment on CBS-4436
+  before Phase 2 starts, so the design is not a surprise at review.
 
-- **OPEN QUESTION — Q6: unconditional wrap at create — any downside?** The ticket argues no:
-  `usp_CreateWrappedUrl` is idempotent (`@id IS NULL` guard) and self-gates on
-  `p_sites.is_pending_tracking`, so non-tracking sites are correct no-ops. **Unverified by me** —
-  the sproc DDL was not read this session (MSSQL down; DataGrip cache not checked yet). Perf on
-  bundle creates is the open part: one sproc round-trip per child posting.
+### Resolved this session — index only
 
-- **OPEN QUESTION — Q7: the third writer.** Does `OrderCommands.AddOrderItemAsync` /
-  `POST /api/experiments/job/{jobId}/order` get wrapped too, get left alone, or get its own ticket?
-  Depends on whether it sees prod traffic — currently unknowable.
-
-- **OPEN QUESTION — Q8: immediate remediation.** Run `/internal/analytics/RegisterJobs` for the
-  affected posting IDs now, or fold it into the Phase 2 ship? The ticket says it is independent and
-  idempotent.
-
-- **OPEN QUESTION — Q9: the ats-api secondary bug.** ats-api's fire-and-forget raw `Thread` wrap
-  dies on `ThreadAbortException`. Ticket asks: include here or split? Different repo, different
-  failure mode — splitting looks right, but it is my call.
-
-- **OPEN QUESTION — testing.** A raw sproc call is awkward to unit test.
-  `PostingCreateCommands_Tests.cs` exists as a seam, and the repo has an integration-test path that
-  needs a local MSSQL container. Pin the real `dotnet test` command by running it before any
-  pipeline run here — no `CoreAPI` row exists yet in [[protocols/coding-standards.md]].
-
-- **OPEN QUESTION — process.** Jira labels on this ticket include `MR_bypass`, `UAT_Bypass` and
-  `noqarequired`. Not acted on, not interpreted. Flagging that they are set.
+| # | Question | Resolution |
+| --- | --- | --- |
+| Q1 | Gate on the wrap-rate query? | (c) decide direction, gate Phase 2 |
+| Q2 | Inline wrap vs widen backstop? | (d) inline at create, gate re-pointed to null-cause breakdown |
+| Q3 | Which seam? | (ii) post-commit in `PostingService` — *but see the open re-look above* |
+| Q4 | Failure semantics? | non-fatal (forced), structured alertable event |
+| Q5 | Media-package children / where does the logic live? | (a) move into DataAccess, V1 delegates |
+| Q6 | Per-child sproc round-trip? | (a) accept |
+| Q7 | The third writer? | (b) leave out — **zero prod traffic in 200 days**; file removal separately |
+| Q8 | Immediate remediation? | (a) run now, as the gate experiment |
+| Q9 | ats-api bug? | split — `atsapi-v6` is unassigned, confirm ownership first |
+| — | Testing | (b) unit + integration; `CoreAPI` pinned green |
+| — | Process | bypass labels deliberately **not** used |
 
 ---
 
