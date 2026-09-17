@@ -72,9 +72,22 @@ Read on 2026-09-17 against `CBS-4643-ofccp-getjobs-param-validation` @ `fcf24ca5
 | 4 | `Common.cs:226` | child, `Delete`, CloudPlus | `pending_delete` |
 | 5 | `Common.cs:263` | child, `Delete`, else | `pending_automated_delete` or `pending_delete` |
 
+### What the cached proc DDL shows
+
+Read 2026-09-18 from the DataGrip offline cache (see [[protocols/repo-memory.md]] and the memory `datagrip-cached-ddl-offline-fallback`), **snapshot dated 2026-07-08** — not a live read.
+
+- **`usp_oneclick_posting_stop`** — 612 lines. **No** `requires_pending_delete`, **no** `transmit_site_setting`, **no** duration logic. 20 mentions of `pending_delete`, 1 of `pending_automated_delete`. The mechanism genuinely is not there.
+- **`usp_oneclick_job_stop`** — 297 lines. Writes **no** `jobs_sites_status` rows at all and contains **zero** `pending_delete` references. It updates `jobs` and `jobs_sites` directly and calls `usp_oneclick_posting_distribution_update` 8×. It does **not** call `usp_oneclick_posting_stop`.
+  - So the "**job** process" half of the ticket title is loose wording: the job stop does not route through the delete-status machinery at all. Whatever the V1 follow-up turns out to be, it is not simply "add the same check to job_stop".
+- **`usp_oneclick_delete_nonintegrated_posting`** — 319 lines, **0** mentions of `requires_pending_delete`.
+
+⚠️ **That last one calibrates how far to trust this cache.** DBA-2636 is *Deployed to Production* and its whole change was adding `requires_pending_delete` to exactly that proc — so the cached copy is provably behind prod. Treat every finding above as "true as of 2026-07-08", and re-confirm against a live connection before acting on the V1 follow-up. It is good enough to have settled D1, which is a scope decision, not a code change.
+
+**Useful trick, reusable:** to calibrate the cache's staleness, read a proc you *know* changed recently and check whether the change is present. That is what the nonintegrated proc was used for here.
+
 ## Decisions
 
-- **D1 — Scope to V2 `StopPostingAsync` only.** It is the one flow that is C#. The V1/proc paths are DBA-owned, we have no DDL locally (only a test stub), and all three `*-64recs-mssql` MCP servers were down for this session. The V1 gap is named below in Scope, not silently left out.
+- **D1 — Scope to V2 `StopPostingAsync` only.** It is the one flow that is C#; the V1/proc paths are DBA-owned. The decision stands unchanged after reading the actual proc DDL (see below) — which **confirms** the premise rather than assuming it: neither stop proc has the mechanism today. The V1 gap is named below in Scope, not silently left out.
 - **D2 — Site does not require deletion → expire immediately.** CBS-4646 never defines this branch; DBA-2636 says "skipped and NOT moved". *Skip* is safe wording in a nightly cleanup proc but wrong in a **stop** flow: the caller asked for the posting to stop, so leaving the status untouched ends with `IsStopped = true, Show = false` and a status still reading `pending`, which `PostingQueries` maps as live. One terminal state, no fourth posting shape.
 - **D3 — "Duration reached" reads `jobs_sites.expire`, not `p_products.duration`.** `expire` *is* the product duration, materialised at create, and it is already on the loaded entity — zero extra queries. Two rules travel with this:
   - `Expire` is `DateTime?`. **Null → treat as not reached → `pending_delete`.** The safe side: we still tell the board to close.
@@ -133,7 +146,7 @@ Read on 2026-09-17 against `CBS-4643-ofccp-getjobs-param-validation` @ `fcf24ca5
 
 ## Open questions
 
-- OPEN QUESTION: **What type is `job_distribution_transmit_site_setting.value`?** D7 assumes `string` compared `== "1"`, inferred from every sibling `name`/`value` pair in the schema. Not verified — all three `*-64recs-mssql` MCP servers timed out for the whole grilling session. A wrong guess means the gate silently never matches and *every* site looks like "does not require deletion", which is the dangerous direction (D8).
+- OPEN QUESTION: **What exact type and length is `job_distribution_transmit_site_setting.value`?** D7 assumes `string` compared `== "1"`. **Narrowed on 2026-09-18** — `usp_job_distribution_transmit_site_settings_get` pivots `MAX([value])` into `[password]` and `[port]`, so it is certainly character data and the `== "1"` comparison is very likely right. Still open on `varchar` vs `nvarchar` and `max_length`, which the EF mapping needs. Original risk, now much reduced: a wrong guess means the gate silently never matches and *every* site looks like "does not require deletion" — the dangerous direction (D8).
 - OPEN QUESTION: **Is `requires_pending_delete = 1` actually populated for the integrated sites that need close requests?** This is D8's gate. DBA-2636's precedent covers non-integrated sites only. If the setting turns out to be sparse across cloud/OneClick sites, the design gets revisited rather than shipped.
 - OPEN QUESTION: **Does the seeded `coreapi-test-sql` container have `job_distribution_transmit_site_setting`?** It is a restore of a real database so very likely yes, but if not, the new entity fails at query translation and the table must be added to the integration-test schema scripts.
 - OPEN QUESTION: **Which of the five write paths does each of Shiela's nine sites actually take?** Cannot be determined from code alone. Not a blocker on any decision — D5 gates all five — but it is how we confirm the fix landed.
@@ -144,9 +157,15 @@ All four are answerable in one session against a working MSSQL connection plus a
 
 **Attempted 2026-09-18, could not run.** All three `*-64recs-mssql` MCP servers were `CONNECT_TIMEOUT` at 30s — as were `jira`, `gitlab`, `datadog` and all three Postgres servers, while the cloud-routed Atlassian connector worked fine. That split points at the VPN, not the database hosts. **The MCP servers only attempt connection at session startup**, so reconnect the VPN *then* start a new session — retrying inside a running one does nothing.
 
-The [[repo-memory#DataGrip cached DDL offline fallback]] does **not** work here: DataGrip's cached introspection at
-`%LOCALAPPDATA%/JetBrains/DataGrip2024.2/data-source/7d830600/…/entities/entities.dat.values` mentions
-`job_distribution_transmit_site_setting` only as a fragment of a default-constraint name. No column list survives, and that cache dates to 2025. Don't spend time on it again.
+**The DataGrip offline cache partially helps — know which half.** Memory `datagrip-cached-ddl-offline-fallback` has the path and method; the working zips are under
+`~/DataGripProjects/Databases/.idea/dataSources/372ba93c-7d52-4171-beed-9b4f48ef1f1c/storage_v2/_src_/database/64recs67o.jZC0oA/schema/dbo.sYMBAA.zip`
+(4107 entries, read with Python `zipfile` — `unzip -j` fails on the leading-slash entry names).
+
+- ✅ **Routine DDL is there in full** — that is how the proc findings above were obtained.
+- ❌ **Per-column table DDL is not**, exactly as the memory warns. There is no `/table/` entry for `job_distribution_transmit_site_setting`, so **OQ1 cannot be closed offline**.
+- ❌ The *other* DataGrip cache at `%LOCALAPPDATA%/JetBrains/DataGrip2024.2/data-source/7d830600/…/entities/entities.dat.values` holds only a fragment of a default-constraint name. Dead end, don't retry it.
+
+**Partial answer to OQ1 already in hand.** `usp_job_distribution_transmit_site_settings_get` (AGL-6841, 2021-08-11) `PIVOT`s `MAX([value])` from that very table into `[server]`, `[port]`, `[username]`, `[password]`, `[destination]`, `[file_type]`. A single column pivoted into both `password` and `port` can only be character data — so **`value` is a string, and D7's `== "1"` comparison is very likely right**. OQ1 stays open only for the exact type and length (`varchar` vs `nvarchar`, `max_length`), which the EF mapping needs.
 
 Column names below for `p_sites` / `p_sites_features` are from the EF mappings (`PartnerSiteEntity`, `PartnerSiteFeatureEntity`), read on 2026-09-18 — not guessed. The `job_distribution_transmit_site*` names come from the SQL in CBS-4646 and DBA-2636, which is exactly what OQ1 exists to confirm.
 
