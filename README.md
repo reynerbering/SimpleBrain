@@ -53,7 +53,7 @@ Note: these five are **not** in one GitLab group. They span `platform/core-api` 
 
 | Local folder | Name | Type | GitLab path | Tech stack |
 | --- | --- | --- | --- | --- |
-| `CoreAPI` | Core API | **API** | `jobtarget/platform/core-api/CoreAPI` | .NET 6 · ASP.NET Core web API · EF Core + MSSQL/DynamoDB/Redis · NUnit · Docker · 13 projects |
+| `CoreAPI` | Core API | **API** | `jobtarget/platform/core-api/CoreAPI` | .NET 10 · ASP.NET Core web API · EF Core 10 + MSSQL/DynamoDB/Redis · NUnit · Docker · 13 projects |
 | `close-job-lambda` | Close Job Lambda | **Lambda** | `jobtarget/core-systems/jobs-domain/close-job-lambda` | Node 20 · TypeScript · AWS Lambda · Terraform · Jest |
 | `ea-distribution-update` | EA Distribution Update | **Lambda** | `jobtarget/platform/core-api/ea-distribution-update` | Node 24 · TypeScript · AWS Lambda · AWS SAM · Jest |
 | `stop-job-postings-lambda` | Stop Job Postings Lambda | **Lambda** | `jobtarget/core-systems/postingdomain/stop-job-postings-lambda` | Node 24 · TypeScript · AWS Lambda · Terraform · Jest |

@@ -5,7 +5,7 @@ repos:
   - CoreAPI
 layer: personal
 consumed_by: "C:\JT Repositories\CoreAPI\CLAUDE.local.md"
-updated: 2026-09-16
+updated: 2026-09-18
 ---
 
 # CoreAPI — my personal layer
@@ -21,6 +21,19 @@ This note holds **only my own additions on top of it**, imported via
 ## My additions
 
 - **Databases** — CoreAPI is MSSQL (`64recs67o`) everywhere *except* the default-location feature, which is Postgres (`defaultlocationDB`, one table). Which MCP server, which environment, and the `OCApi` cross-database gotcha are in [the database routing protocol](../../protocols/databases.md) — the only copy.
+
+- **.NET 10 SDK lives in my user profile, not on PATH.** CoreAPI needs it since CBS-4668 (see
+  [coding standards](../../protocols/coding-standards.md) — the only copy of what the upgrade
+  changed). The system install at `C:\Program Files\dotnet` is still 9.0.103 / 9.0.317 and cannot
+  build the repo. Mine is `10.0.401` at `~/.dotnet`, installed 2026-09-18 via `dotnet-install.ps1
+  -Channel 10.0 -InstallDir "$env:USERPROFILE\.dotnet" -NoPath`. Deliberately off PATH so it does
+  not shadow the system SDK for other repos — so every command needs:
+
+  ```bash
+  export PATH="$HOME/.dotnet:$PATH" DOTNET_ROOT="$HOME/.dotnet"
+  ```
+
+  Symptom when it is missing: `NETSDK1045` on every project, which reads like a repo problem and is not.
 
 <!-- Add personal-only items here: sandbox URLs, local DB creds pattern,
      preferred test filters, habits that are mine and not the team's.

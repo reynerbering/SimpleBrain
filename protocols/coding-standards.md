@@ -37,7 +37,19 @@ This table records only commands **verified by actually running them**.
 
 | Repo | Test command | Build command | Confirmed |
 | --- | --- | --- | --- |
-| `CoreAPI` | `dotnet test CoreAPI.Test/CoreAPI.Test.csproj` — **needs the local MSSQL container up**, see note | `dotnet build CoreAPI.Test/CoreAPI.Test.csproj` | 2026-09-17 — 367/367 green, 5m40s |
+| `CoreAPI` | `dotnet test CoreAPI.Test/CoreAPI.Test.csproj` — **needs the local MSSQL container up**, see note | `dotnet build CoreAPI.Test/CoreAPI.Test.csproj` | ⚠️ 2026-09-17 — 367/367 green, 5m40s, **on .NET 6 — superseded by the upgrade below, re-run pending** |
+
+⚠️ **`CoreAPI` moved to .NET 10 on 2026-09-17** — commit `ee28457e`, "CBS-4668: Upgrade Core API
+to .NET 10". EF Core went 7.0.20 → 10.0.12 and the repo adopted central package management
+(`Directory.Packages.props`). Consequences for running anything there:
+
+- **A .NET 10 SDK is required.** With only a 9.x SDK every project fails restore with
+  `NETSDK1045: The current .NET SDK does not support targeting .NET 10.0` — the repo does not build
+  at all. There is no `global.json` pinning a version.
+- **EF Core 10 renamed generated query parameters** — `@__jobId_Value_0` became `@jobId_Value`. Any
+  test asserting on generated SQL by parameter name breaks on the upgrade. Assert on the emitted
+  predicate instead.
+- The 367/367 figure above predates all of this and has not been re-established.
 
 ⚠️ **`CoreAPI` is only green with a local SQL Server on `localhost:1433`.** Without it the same
 command returns **192 failed / 175 passed** — every failure an identical
