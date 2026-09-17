@@ -11,10 +11,10 @@ updated: 2026-09-18
 
 # CBS-4436 — V2 posting analytics wrap
 
-- **Status:** in progress — **both gates cleared 2026-09-18 and Q3 re-decided (seam (i)).** GATE 1
-  confirmed the root cause rather than invalidating it. **One item left before Phase 2: Q4's
-  reasoning**, which seam (i) invalidated even though its conclusion may stand. Neru also needs to
-  accept GATE 1's substituted method, since the specified experiment could no longer be run.
+- **Status:** in progress — **Q3 (seam (i)), Q4 (non-fatal) and GATE 2 all settled 2026-09-18.**
+  **GATE 1 is the sole remaining blocker**: Neru rejected the substituted DB-state method, so the
+  specified `RegisterJobs` flip-test must actually run — against a rebuilt current cohort, since the
+  original one is spent.
 - **Ticket:** [[tickets/CBS-4436.md]] — *Discovery: analytics click-to-apply hash missing for postings created via core-api V2 create path — decide whether to add inline wrap*
 - **Jira:** CBS-4436 · Investigation · High · Selected for Development · reporter Shervin Ivari · assignee me
 - **Grilled:** 2026-09-17 via /grilling — **complete**
@@ -584,8 +584,14 @@ The `OPEN QUESTION` marker below is load-bearing: the Planner stops on it
 ([`coding/four-agent-pipeline.md`](../coding/four-agent-pipeline.md)). Only genuinely unresolved
 items carry it.
 
-- **OPEN QUESTION — Q4's failure semantics must be re-confirmed on seam (i)'s terms.**
-  Opened 2026-09-18 by the Q3 re-decision; it is the **only thing still blocking Phase 2.** Q4 chose
+- ~~**OPEN QUESTION — Q4's failure semantics must be re-confirmed on seam (i)'s terms.**~~
+  — **CLOSED 2026-09-18. Neru re-confirmed NON-FATAL, now on seam (i)'s terms.** Not inherited from
+  the old reasoning, which was void: it is chosen because a missing analytics hash should not stop a
+  job going live, and GATE 1 evidence shows the row can be created later without harm. **The GATE 2
+  rider still binds** — the catch must re-throw on a dead transaction
+  (`SqlException.Number == 1205` / `XACT_STATE() = -1`) so the execution strategy replays; only
+  committable failures may be logged and swallowed. *Original framing kept below.*
+  Opened 2026-09-18 by the Q3 re-decision; it was **the only thing still blocking Phase 2.** Q4 chose
   *non-fatal* and recorded it as **forced** — "post-commit the posting exists and the SNS `Create`
   notification has already fired, so failing would invite a caller retry and duplicate the posting".
   At seam (i) that is false: an in-transaction failure rolls back cleanly and leaves nothing behind,
@@ -595,8 +601,19 @@ items carry it.
   **Neru decides.** Whichever way it goes, the GATE 2 rider still binds: the catch must re-throw on a
   dead transaction (`SqlException.Number == 1205` / `XACT_STATE() = -1`), never blanket-swallow.
 
-- ~~**OPEN QUESTION — GATE 1: the `RegisterJobs` flip-count experiment has not been run.**~~
-  — **CLOSED 2026-09-18. The gate's question is answered; the specified experiment is dead.**
+- **OPEN QUESTION — GATE 1 IS NOT SATISFIED. Neru rejected the substituted method 2026-09-18.**
+  The DB-state evidence below stands as *evidence* and is not withdrawn — but it is **not** the
+  flip-test the gate specified, and Neru declined to accept it in place of one. **GATE 1 therefore
+  still blocks Phase 2.**
+  - The original 35-posting cohort **cannot** serve: 34 are remediated, leaving n=1. Re-running the
+    specified experiment on it would produce no signal for anyone.
+  - **Resolution in progress:** rebuild a *current* cohort of cause-1 postings from prod and run the
+    specified flip-test against that. Same method, live sample. Cohort discovery is read-only; the
+    `RegisterJobs` call is a **prod write** and is not to be made without Neru asking for it in the
+    same breath.
+
+- ~~*(superseded framing)* **GATE 1: the `RegisterJobs` flip-count experiment has not been run.**~~
+  — DB-state answer recorded 2026-09-18, **not accepted as satisfying the gate.**
   See [GATE 1 — answered by DB state](#gate-1--answered-by-db-state-2026-09-18). **Verdict: the
   ticket's root cause HOLDS. Cause 1 confirmed, causes 2 and 3 eliminated for the whole cohort.
   Q2's direction and Q3's seam both stand. Phase 2 is unblocked on this axis.**
