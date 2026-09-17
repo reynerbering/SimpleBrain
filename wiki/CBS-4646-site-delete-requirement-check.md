@@ -1,0 +1,157 @@
+---
+type: design-doc
+ticket: CBS-4646
+team: CBS
+status: decided
+repos:
+  - CoreAPI
+grilled: 2026-09-18
+updated: 2026-09-18
+---
+
+# CBS-4646 — Site delete requirement and product duration check on stop
+
+- **Status:** decided — four verification gates still unrun, see [Open questions](#open-questions)
+- **Ticket:** [[tickets/CBS-4646.md]] — *file does not exist yet; create on the first Phase 2 session*
+- **Jira:** [CBS-4646](https://jobtarget.atlassian.net/browse/CBS-4646) — Story, Backlog, High, unassigned, label `CBSWk38of2026`, reporter Shiela Mojeno. Verified via Atlassian MCP 2026-09-17.
+- **Grilled:** 2026-09-18 via `/grilling`
+- **Last touched:** 2026-09-18
+
+## Problem
+
+- Core V2's stop-posting flow writes `pending_delete` / `pending_automated_delete` for **every** posting it stops, regardless of whether the site actually needs a close request sent to the board.
+- That queues pointless work in DES, and for SEEK it burns a credit — the posting gets closed early instead of running its full paid duration.
+- The rule already exists on the DB side: **DBA-2636** shipped it for `usp_oneclick_delete_nonintegrated_posting` and is **Deployed to Production**. Core V2 never got it.
+- My own comment on the ticket, 2026-09-16: *"This is ready to implement, we don't have this mechanism in Core V2."*
+- CBS-4646 **blocks [PJO-11160](https://jobtarget.atlassian.net/browse/PJO-11160)** — "Update SEEK Integration to Allow Natural 30-Day Expiration — Site ID 25461 (Phase 1)", Resolved. PJO-11160 is where the *duration* half of this ticket comes from, and it is far more specific than CBS-4646's own description:
+  - postings that complete their full product duration → **move directly to Expired**, do not enter Pending Delete, **no `closePostedPositionProfile` sent**;
+  - early stop → Pending Delete, close request still sent.
+
+**Volume** — Shiela, 2026-09-08. 43 postings currently in a delete status on sites that do not require deletion. Started ~Sept 2024.
+
+| site_id | site_name | total | pending_delete | pending_automated_delete |
+| --- | --- | --- | --- | --- |
+| 25393 | JobTarget Programmatic | 25 | 25 | 0 |
+| 17466 | CompliancePost Veteran and Disability (OFCCP) | 10 | 10 | 0 |
+| 5258 | WorkForce West Virginia | 2 | 2 | 0 |
+| 4416 | EmployOklahoma | 1 | 0 | 1 |
+| 15012 | Indeed | 1 | 1 | 0 |
+| 20868 | Hire Patriots | 1 | 1 | 0 |
+| 5264 | Hire Wyoming | 1 | 1 | 0 |
+| 26325 | CounselorJob.com | 1 | 1 | 0 |
+| 23306 | Colorado State University - College of Business | 1 | 0 | 1 |
+
+## The rule
+
+Collapses to one sentence: **`pending_delete` is written only when the site requires deletion *and* the posting is ending early. Everything else expires.**
+
+| `requires_pending_delete = 1`? | duration reached? | outcome |
+| --- | --- | --- |
+| no | — | `expired` (process `expire-no-delete-required`) |
+| yes | yes | `expired` (process `expire-duration-reached`) |
+| yes | no | `pending_delete` / `pending_automated_delete` — unchanged |
+
+CBS-4646's description only defines the bottom two rows. The top row is the one that explains all 43 stuck postings, and it came from DBA-2636's wording, not from this ticket.
+
+## Where the code actually is
+
+Read on 2026-09-17 against `CBS-4643-ofccp-getjobs-param-validation` @ `fcf24ca5`.
+
+- **V2 `DELETE /api/v2/posting/{postingId}`** → `PostingService.StopPostingAsync` → `PostingDeactivationCommands.StopPostingAsync`. The only stop flow that lives in C#.
+- **V1 is all stored procs** — `DELETE /api/job/{jobId}` → `usp_oneclick_job_stop`; `StopJobPosting` / `StopJobParentAndChildrenPostings` → `usp_oneclick_posting_stop`. V2 `JobController` has **no** stop/delete endpoint at all.
+- `job_distribution_transmit_site` has an EF entity. **`job_distribution_transmit_site_setting` does not** — no entity, no DbSet, no mapping. This is the only genuinely new data access.
+- Product duration is already materialised into `jobs_sites.expire` at create: `SetProductExpiry` → `ResolveExpiryDays(isMediaPackageSite, isProgrammatic, product.Duration ?? 30)` → `SetExpirationDate(start, days)`, landing on **23:59:59 local** on the last day.
+
+**Five places write a delete status in C#** — not one:
+
+| # | Location | Path | Writes |
+| --- | --- | --- | --- |
+| 1 | `PostingDeactivationCommands.cs:164` | parent, always `MoveAction.Delete` | `pending_automated_delete` or `pending_delete` |
+| 2 | `Common.cs:205` | child, `Expire`, cloud | `pending_delete` |
+| 3 | `Common.cs:211` | child, `Expire`, non-cloud | `pending_delete` + `ExpireJobSite` |
+| 4 | `Common.cs:226` | child, `Delete`, CloudPlus | `pending_delete` |
+| 5 | `Common.cs:263` | child, `Delete`, else | `pending_automated_delete` or `pending_delete` |
+
+## Decisions
+
+- **D1 — Scope to V2 `StopPostingAsync` only.** It is the one flow that is C#. The V1/proc paths are DBA-owned, we have no DDL locally (only a test stub), and all three `*-64recs-mssql` MCP servers were down for this session. The V1 gap is named below in Scope, not silently left out.
+- **D2 — Site does not require deletion → expire immediately.** CBS-4646 never defines this branch; DBA-2636 says "skipped and NOT moved". *Skip* is safe wording in a nightly cleanup proc but wrong in a **stop** flow: the caller asked for the posting to stop, so leaving the status untouched ends with `IsStopped = true, Show = false` and a status still reading `pending`, which `PostingQueries` maps as live. One terminal state, no fourth posting shape.
+- **D3 — "Duration reached" reads `jobs_sites.expire`, not `p_products.duration`.** `expire` *is* the product duration, materialised at create, and it is already on the loaded entity — zero extra queries. Two rules travel with this:
+  - `Expire` is `DateTime?`. **Null → treat as not reached → `pending_delete`.** The safe side: we still tell the board to close.
+  - PATCH/PUT posting can overwrite `expire`. An operator who shortened a posting genuinely *has* shortened its duration, so honouring it is correct. "Product duration" in the ticket therefore means **the posting's effective expiry**.
+- **D4 — Compare in EST, inclusive: `expire <= EstNow()`.** Matches the clock the value was written in. `DateTime.UtcNow` runs 4–5 hours ahead, which would declare a posting duration-reached up to 5 hours early and skip a close request on a posting with paid duration left — the mirror image of the bug PJO-11160 exists to fix. Inclusive because `expire` lands on 23:59:59, not midnight.
+- **D5 — Gate all five write sites, through one shared decision on `PostingUpdate`.** Add `RequiresPendingDelete` and `DurationReached` alongside the existing `Cloud` / `CloudPlus` / `AutoDeleteSwitch` switches; compute in `UpdateParentStatusIfNotTerminal` and `BuildChildUpdate`. The setting is keyed on `site_id` and media-package children each carry their **own** `child.Site` — so it must be computed per posting. Deciding once for the parent and inheriting down would be wrong.
+- **D6 — The bypass branch reuses the existing php-integration shape and suppresses the outbound delete.** Gating the status alone is not enough: the close request is queued at **`Common.cs:238`** (`AddJobExternalTransmit(child, "delete", …)`) which runs *before* the status decision at `:263`. Status-only gating would send the posting to `expired` and still tell the board to delete it — exactly what PJO-11160 forbids. The shape already in the file at `Common.cs:254-260` is the model: `UpdateJobSiteStatus("expired")` + `ExpireJobSite` + `RemoveJobFlags` + suppressed delete transmit.
+  - **Distinct `process` strings** — `expire-duration-reached` and `expire-no-delete-required`. PJO-11160's last AC is *"Logging clearly identifies whether a posting ended through natural expiration or an early close request."* Today every row says `delete` or `expire_cloud`. `createdBy` unchanged.
+  - **The parent path has no `AddJobExternalTransmit`** — `UpdateJobExternalTransmit` only deactivates. For the parent the `pending_delete` status row *is* the DES signal, matching DBA-2636's framing. Transmit suppression only bites on the child delete path.
+- **D7 — New entity + one batched lookup, not a navigation Include.** `LoadChildPostings` includes `Site.JobDistributionTransmits` **only when `!onlyExpireIncludes`** (`:242-249`) — and D5 gates the Expire path, which is exactly the `onlyExpireIncludes = true` case. A navigation read would force that conditional open and undo the narrowing its XML docs were written to justify. Instead: collect distinct site IDs across parent + children, one query, return a `HashSet<int>`.
+  - `value` mapped as **`string`**, compared `== "1"`. Every other `name`/`value` pair in this schema is a string (`JobExternalTransmitLoginEntity.Value`, `RecruiterSiteLoginDetailEntity.Value`). The ticket's SQL writes `tss.value = 1` unquoted, which SQL Server resolves by implicit conversion and EF will not. **Assumption, not verified** — see Open questions.
+  - `WithHint(TableHint.Nolock)`, matching the ticket's `WITH(NOLOCK)` and the existing idiom at `JobFeatures/Common.cs:44`.
+- **D8 — Data-driven for all sites, no feature flag, conditional on a prod verification gate.** The failure modes are **not symmetric**:
+  - sending an unneeded delete → DES noise. Today's state, and what Shiela filed.
+  - **not** sending a needed delete → the posting stays live on the board after the client stopped it. Customer-visible, and on credit-based boards, billable.
+
+  This change moves behaviour toward the second one, so "no `requires_pending_delete = 1` row" has to genuinely mean "does not need a close request", not "nobody configured it yet". DBA-2636 already shipped those semantics to prod — but for *non-integrated* sites, a different population from the cloud/OneClick sites these flows cover. Hence the gate rather than blind trust. There is no feature-flag infrastructure in CoreAPI (no `IFeatureManager`, no LaunchDarkly, nothing in `appsettings.json`), so a flag would mean building one.
+- **D9 — Test at both layers.** The core is a pure function `(requiresPendingDelete, durationReached) → outcome` — unit-test it directly off an `internal static` helper, same shape as `ResolveExpiryDays`. Plus DB-backed cases in `CoreAPI.Test/Client_Tests/Posting_Tests/StopPosting_Tests.cs` proving the status row **and** the suppressed transmit row for at least one child-delete case. The side effect at `Common.cs:238` is where this breaks, and a unit test cannot see it.
+- **D10 — Backfill of the 43 existing rows is out of scope, and we raise nothing for it.** Neru: *"let them deal with that."* Fixes forward only; existing `pending_delete` rows untouched. Recorded here as a scope boundary so a later reader knows it was decided, not overlooked.
+- **D11 — Accept the response/SNS status change; envelope unchanged, no versioning.** `PostingService.StopPostingAsync` (`:81-87`) publishes `PostingNotification(PostingNotificationAction.Delete, posting)` on every successful stop. Bypassed stops now report `Expired` instead of `PendingDelete` in both the HTTP body and the SNS message. Not a schema change — `Expired` is already returnable today via the php-integration branch at `Common.cs:256`, so consumers switching on status already handle it. `PostingNotificationAction.Delete` describes the *action*, not the status, and stays. Worth a heads-up to the downstream topic owners about the distribution shift; not a code change here.
+- **D12 — Green baseline required before `/ship`.** Fix the container (`ALTER TABLE [64recs67o].dbo.jobs_info_long ADD site_id INT NULL;`), confirm 383/383, then start Phase 2. "No regression on existing flows" is the ticket's own AC and is unverifiable against a red suite — and a genuine new failure would hide inside the 57 existing `"Job creation failed."` results. **Phase 2 branches from current `develop`** (contains `ee28457e`, the .NET 10 upgrade), not from the pre-upgrade commit this grilling read.
+
+## Rejected
+
+- **Modifying `usp_oneclick_posting_stop` / `usp_oneclick_job_stop` as part of this ticket** — covers every caller, but puts Core on the hook for DBA-owned procs we have no DDL for. The only local copy is a 46-line test stub.
+- **A Core-side gate in `JobService` before the V1 proc calls** — cheap, but splits one rule across two layers with no single place to read it.
+- **Literal DBA-2636 "skip"** (no status row written, only `MarkParentAsStopped`) — faithful to the sibling ticket, but invents a fourth posting state that every downstream reader has to learn.
+- **Recomputing `start + p_products.duration`** — needs `jobs_sites → r_orders_items_links (type='job') → r_orders_items.product_id → p_products.duration`, the 348M-row links table that `IsChildPostingAsync` and `LoadParentPosting` were explicitly rewritten to avoid. It would also have to re-implement `ResolveExpiryDays` — genuine media-package sites use a fixed 60 days, **not** the product duration, with 25393 carved out (CBS-4162). It would disagree with the stored expire for exactly the site topping Shiela's list.
+- **Date-only comparison** (`expire.Date < EstNow().Date`) — immune to clock skew but shifts the boundary by up to a full day and silently changes same-day stops.
+- **Gating the Delete path only (writes 1, 4, 5)** — leaves `Common.cs:205`/`:211` writing `pending_delete` on the Expire path. Same bug, same table. Note site 25393 is hard-coded `false` in `IsProgrammatic` (`Common.cs:22`) and excluded in `IsMediaPackageAsync`, so it is treated as a single posting and hits write 1 — parent-only gating probably does clear Shiela's biggest line, but leaves the other eight sites' children on the old behaviour.
+- **`ThenInclude` off the existing `JobDistributionTransmits`** — more EF-idiomatic, but re-widens both load paths and adds a fourth collection to a deliberately trimmed `AsSplitQuery` graph.
+- **`FromSqlRaw` with the ticket's query verbatim** — no entity to maintain, but cuts against the EF-native direction of the rewrite and needs extra plumbing against the integration-test schema.
+- **appsettings kill-switch** — ~10 lines, but CoreAPI ships by redeploy anyway, so it buys less than it looks like.
+- **Site allowlist (25461 + Shiela's nine)** — safest, but it does not fix the ticket. It fixes ten sites, leaves the general rule unbuilt, and becomes permanent config nobody prunes.
+- **Reporting `PendingDelete` while writing `expired`** — lying about stored state is worse than the change.
+- **A new response field for the exit reason** — useful for PJO-11160's logging AC, but an API surface addition beyond this ticket. The `process` strings make it recoverable from the data.
+- **Accepting the 84 known-red tests as a baseline and comparing counts** — makes the Tester reason about a failure set instead of a boolean.
+
+## Scope
+
+**In**
+
+- V2 `PostingDeactivationCommands.StopPostingAsync` — parent and media-package children.
+- All five delete-status write sites (table above).
+- New `JobDistributionTransmitSiteSettingEntity` + DbSet + one batched lookup.
+- `RequiresPendingDelete` / `DurationReached` on `PostingUpdate`.
+- Suppressing `AddJobExternalTransmit(…, "delete")` on the bypass path.
+- Unit tests for the matrix + DB-backed tests in `StopPosting_Tests`.
+
+**Out**
+
+- **V1 / stored-proc stop flows** — `usp_oneclick_posting_stop`, `usp_oneclick_job_stop`. Core V2 has no job-level stop at all, so the "job process" half of the ticket title cannot be done in this repo. Needs a DBA sibling ticket; **not raised yet.**
+- **Backfill of the 43 existing rows** (D10) — reporter's side, nothing raised by us.
+- **The UTC/EST inconsistency inside `Common.cs`** — `ExpireJobSite` and `MarkParentAsStopped` write UTC while `UpdateJobSiteStatus` stamps EST, on the same stop. Pre-existing, deserves its own ticket, fixing it here would widen the blast radius past "no regression".
+- Feature flags, allowlists, API surface additions.
+
+## Open questions
+
+- OPEN QUESTION: **What type is `job_distribution_transmit_site_setting.value`?** D7 assumes `string` compared `== "1"`, inferred from every sibling `name`/`value` pair in the schema. Not verified — all three `*-64recs-mssql` MCP servers timed out for the whole grilling session. A wrong guess means the gate silently never matches and *every* site looks like "does not require deletion", which is the dangerous direction (D8).
+- OPEN QUESTION: **Is `requires_pending_delete = 1` actually populated for the integrated sites that need close requests?** This is D8's gate. DBA-2636's precedent covers non-integrated sites only. If the setting turns out to be sparse across cloud/OneClick sites, the design gets revisited rather than shipped.
+- OPEN QUESTION: **Does the seeded `coreapi-test-sql` container have `job_distribution_transmit_site_setting`?** It is a restore of a real database so very likely yes, but if not, the new entity fails at query translation and the table must be added to the integration-test schema scripts.
+- OPEN QUESTION: **Which of the five write paths does each of Shiela's nine sites actually take?** Cannot be determined from code alone. Not a blocker on any decision — D5 gates all five — but it is how we confirm the fix landed.
+
+All four are answerable in one session against a working MSSQL connection plus a running container. Do that before Phase 2.
+
+---
+
+> After the pipeline runs, append a dated revision below — never rewrite the history above it.
+> One new section per post-implementation pass. Delete this blockquote and the stub when filling the first one in.
+
+## YYYY-MM-DD — post-implementation revision
+
+**Changed**
+- <decision> revised to <new> — because <what the build revealed>.
+
+**Reviewer flagged**
+-
+
+**New open questions**
+-
