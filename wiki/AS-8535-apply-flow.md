@@ -70,12 +70,13 @@ What is actually broken:
 Chained `ctx.InvokeAsync`. Separate functions, not child contexts — *"we must uncouple these things to
 add more flexibility and retry mechanisms."*
 
-| Layer | Operations | Terminal state |
-| --- | --- | --- |
-| **1 Validate** | Archive · Authenticate · Dedupe · CheckRequired | `Validated` / `Rejected(reason)` |
-| **2 Parse** | ExtractJobRef · ResolveJob · ExtractApplicant · AcquireResume · TransformAnswers · ResolveQuestions | `Parsed` / `Diverted` |
-| **3 Assemble** | CreateCandidate · AttachResume · SubmitApplication · RecordApplication | `Assembled` |
-| **4 Delivery** | BuildDeliveryPayload · Deliver → EAC · Postback | `Delivered` |
+| Layer          | Operations                                                                                          | Terminal state                   |
+| -------------- | --------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **1 Validate** | Archive · Authenticate · Dedupe · CheckRequired                                                     | `Validated` / `Rejected(reason)` |
+| **2 Parse**    | ExtractJobRef · ResolveJob · ExtractApplicant · AcquireResume · TransformAnswers · ResolveQuestions | `Parsed` / `Diverted`            |
+| **3 Assemble** | CreateCandidate · AttachResume · SubmitApplication · RecordApplication                              | `Assembled`                      |
+| **4 Delivery** | BuildDeliveryPayload · Deliver → EAC · Postback                                                     | `Delivered`                      |
+|                |                                                                                                     |                                  |
 
 - **The cut is on transaction boundaries.** Assemble writes only to systems JobTarget owns; Delivery
   writes only to systems it does not. Different failure modes, different retry appetite, different blast

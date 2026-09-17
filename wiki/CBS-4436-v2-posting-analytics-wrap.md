@@ -6,7 +6,7 @@ status: in progress
 repos:
   - CoreAPI
 grilled: 2026-09-17
-updated: 2026-09-17
+updated: 2026-09-18
 ---
 
 # CBS-4436 — V2 posting analytics wrap
@@ -441,6 +441,9 @@ items carry it.
   "Sproc facts" — including the three-causes finding that drove Q2 — rests on that snapshot.
 
 - **OPEN QUESTION — Q3 IS REOPENED. The recorded reasoning does not survive review.**
+  **DEFERRED by Neru 2026-09-18: Q3 is not re-decided until GATE 2 lands.** The doom-transaction
+  question is the deciding risk for seam (i) and cannot be answered without the live sproc DDL, so
+  deciding now would be guessing. GATE 2 is therefore a hard prerequisite for Q3, and Q3 for Phase 2.
   Investigated 2026-09-17 (session 4) against `CoreAPI` HEAD `fcf24ca5` — the same commit the rest of
   this doc cites. Every line below was read, not inferred. **Neru decides; no decision reached.**
 

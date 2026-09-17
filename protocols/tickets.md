@@ -27,7 +27,9 @@
 - Pull title, status, and description from Jira via the Atlassian MCP connector when it is available.
 - If the connector is not authorized or reachable, build the entry from `/raw` and **explicitly mark** the unverified fields (e.g. `status: In Progress (unverified — Jira not reachable)`). Do not guess a status or title.
 - Never invent a Jira key. If the key is unknown, log it as `UNKNOWN-KEY` and flag it in the entry.
-- **The two project keys in play are `CBS` (Core Business Services) and `AS` (Apply Systems)** — both verified against Jira on 2026-09-15. `APPSYS` is Neru's spoken shorthand for Apply Systems and is **not** a Jira key; never write `APPSYS-*` in a filename or a link.
+- **Neru's own two project keys are `CBS` (Core Business Services) and `AS` (Apply Systems)** — both verified against Jira on 2026-09-15. `APPSYS` is Neru's spoken shorthand for Apply Systems and is **not** a Jira key; never write `APPSYS-*` in a filename or a link.
+- **`PST` (Partnerships Team) is a real third key** — verified against Jira on 2026-09-17. It owns `atsapi-v6` / ats-api. Work on a repo Neru does not own still gets filed under the owning team's key; filing it under `CBS` or `AS` would invent a team assignment.
+- ⚠️ **The GitLab-group heuristic is not reliable for ownership.** `atsapi-v6`'s local remote is `oneclick/atsapi-v6`, while PST-6617/6618 describe it as `platform/core-api/ats-api` — the *CBS* group pattern in [`README.md`](../README.md). **Jira keys in the repo's commit messages are the stronger signal**; check those before trusting the group path.
 - Repos live under `C:\JT Repositories`. The team-to-repo inventory is the repo tables in [`README.md`](../README.md) — the only copy. A repo that is not listed there has no assigned team; ask, do not assume.
 
 ## What to log about a pipeline run
