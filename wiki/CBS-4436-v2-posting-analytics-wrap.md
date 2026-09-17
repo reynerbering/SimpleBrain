@@ -484,6 +484,83 @@ The 13-posting cohort carries that finding.
 - ⚠️ **No wrap-rate denominator.** This says the cohort's cause is 1; it does not say how often the
   gap occurs across all channels. That number is still unmeasured.
 
+### The cause model was wrong — corrected 2026-09-18
+
+Verified live on prod, independently of the subagent that first raised it.
+
+**Cause 3 cannot produce a missing row.** Once `usp_CreateWrappedUrl` passes its two gates
+(`@id is null AND @is_pending_tracking = 1`) the `INSERT` is **unconditional**. An unresolvable apply
+URL only makes `tracking_url` NULL — the row still exists. So:
+
+> **"No active `job_employanalytics` row" + `is_pending_tracking = 1` means the proc was never
+> invoked.** It is a **non-call, not a no-op.** That is the correct signature for this bug, and the
+> right predicate is `NOT EXISTS (any active je row)` — not `tracking_url IS NULL`.
+
+**Cause 2 and cause 3 are both structurally empty in production:**
+
+| Claim | Measured | Consequence |
+| --- | --- | --- |
+| Sites with `is_pending_tracking = 0` | **14 of 37,452** | The DBA-2476 gate filters essentially nothing. |
+| Live active postings on an opted-out site | **0** | **Cause 2 does not occur.** |
+| Live active postings with a row but `tracking_url IS NULL` | **0** | **Cause 3 does not occur.** |
+
+So every unwrapped live posting is cause 1. The three-cause model in *Sproc facts* above is retained as
+the *theory* of the sproc, but only one branch of it is real.
+
+### The wrap-rate denominator — answered 2026-09-18
+
+Q1's underlying number, never measured before this:
+
+| Measure | Value |
+| --- | --- |
+| Live active postings (`js.active=1 AND js.expire > getdate()`) | **442,461** |
+| Of those, with **no** active `job_employanalytics` row | **21** |
+| Miss rate | **0.0047%** |
+
+**Read this honestly in both directions.** The gap is real, reproducible and 100% cause 1 — but it is
+*four thousandths of one percent* of live postings. It is not a widespread outage. Nothing in this doc
+should be written as though it were. The counts drift by one or two between runs because production is
+moving; treat 21 as a 2026-09-18 snapshot.
+
+⚠️ **This covers live postings only.** Classifying all 208M `js.active=1` rows is infeasible — the MCP
+server enforces a hard 60-second query cap. No claim is made about wrap state before ~2026-06.
+
+### ⚠️ The PostMaster backstop has been dead since February 2023
+
+**This is the most consequential finding in the ticket, and it invalidates a premise in the Jira
+description.** Verified directly, not inferred:
+
+```sql
+SELECT COUNT_BIG(*), MAX(created_date), MAX(posting_id),
+       SUM(CASE WHEN created_date > DATEADD(Month,-1,GETDATE()) THEN 1 ELSE 0 END)
+FROM PM.campaign_posting WITH (NOLOCK)
+-- 67,636,315 rows | max created_date 2023-02-21 | max posting_id 205,036,529 | 0 in the last month
+```
+
+- `PM.campaign_posting` is **frozen**. Nothing has been written to it since **2023-02-21**.
+- Its highest `posting_id` is **205,036,529**. Current `jobs_sites.id` values are **~287,000,000**.
+  **No posting created since Feb 2023 is in that table at all.**
+- `PM.usp_get_jobs_applyurl_not_wrapped` `INNER JOIN`s that table *and* requires
+  `cp.created_date > DATEADD(Month,-1,getdate())` — which matches **zero rows**. The sweep has returned
+  an empty set on every run for about three and a half years.
+- **Worse: the sweep never repaired anything even when it did return rows.** It is a `SELECT`-only
+  report — it returns `campaign_job_id`, `job_title`, `campaign_name`, `campaign_cycle_id`,
+  `campaign_id`. No `INSERT`, no `EXEC usp_CreateWrappedUrl`. Re-read from the live DDL above.
+
+**Consequences that must reach the Planner and the ticket:**
+
+1. **There are two backstops, not three.** The Jira description's "PostMaster scheduled sweep" is not a
+   safety net and has not been one since 2023.
+2. Of the two that remain, the marketplace UI only covers marketplace checkouts, and **ats-api's is
+   itself broken** (fire-and-forget `Thread`, dies on `ThreadAbortException` — the PST split-out).
+3. **Q2's "widen the backstop" option is worse than the doc records.** Widening
+   `usp_get_jobs_applyurl_not_wrapped` would mean un-freezing a dead table *and* converting a report
+   into a repair job. It was already rejected; this is further confirmation, not a reopening.
+4. It explains GATE 1's `285699513` cleanly: nothing was ever going to fix it.
+
+⚠️ **This is out of CBS-4436's scope but should not die here.** A scheduled job that has silently
+returned zero rows since 2023 is its own defect, and it is not this ticket's to fix.
+
 ### Seam facts for Q3
 
 - `PostingService` holds `_hostedApplySettings` as a field (`PostingService.cs:40`), so `HashIdSalt`
@@ -607,10 +684,14 @@ items carry it.
   still blocks Phase 2.**
   - The original 35-posting cohort **cannot** serve: 34 are remediated, leaving n=1. Re-running the
     specified experiment on it would produce no signal for anyone.
-  - **Resolution in progress:** rebuild a *current* cohort of cause-1 postings from prod and run the
-    specified flip-test against that. Same method, live sample. Cohort discovery is read-only; the
-    `RegisterJobs` call is a **prod write** and is not to be made without Neru asking for it in the
-    same breath.
+  - **Cohort rebuilt 2026-09-18 — 21 live cause-1 postings**, every gate green, none in
+    `PM.campaign_posting`. 17 of 21 are on site 25393 (JobTarget Programmatic); the rest are
+    Socialworkerjobs.com (2), Indeed Sponsored Campaign (1), PracticeMatch (1). Sample IDs and the
+    denominator are in [the wrap-rate section](#the-wrap-rate-denominator--answered-2026-09-18).
+  - **Remaining step is the flip-test itself**, which is a **prod write**
+    (`POST /internal/analytics/RegisterJobs`). **Not made.** It requires Neru to ask for that write in
+    the same breath; "run the experiment" does not imply it. Re-run the cohort query immediately
+    before firing — the count drifts as production moves.
 
 - ~~*(superseded framing)* **GATE 1: the `RegisterJobs` flip-count experiment has not been run.**~~
   — DB-state answer recorded 2026-09-18, **not accepted as satisfying the gate.**
@@ -664,8 +745,10 @@ items carry it.
     full object (`CoreAPI.Public/Domains/Posting/PostingNotification.cs:14,16-20`). **Every downstream
     consumer also gets null.**
   - Patching `posting.ClickToApplyUrl` app-side would be **wrong** — the sproc legitimately no-ops when
-    `is_pending_tracking = 0` or masking is off (causes 2 and 3). That would invent a URL for a row
-    that does not exist. Fixing it at (ii) therefore needs a re-read, and the wrap must be ordered
+    `is_pending_tracking = 0`. That would invent a URL for a row that does not exist.
+    ⚠️ **Corrected 2026-09-18:** this bullet originally also said "or masking is off (causes 2 and 3)".
+    That half was wrong — masking-off still **creates** the row, with a NULL `tracking_url`. See
+    [the corrected cause model](#the-cause-model-was-wrong--corrected-2026-09-18). Fixing it at (ii) therefore needs a re-read, and the wrap must be ordered
     *before* the SNS send — neither is scoped in the Q3 write-up.
   - **At seam (i), placing the wrap before `GetPostingAsync` makes the response and the notification
     correct for free.**
