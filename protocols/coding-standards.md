@@ -37,9 +37,9 @@ This table records only commands **verified by actually running them**.
 
 | Repo | Test command | Build command | Confirmed |
 | --- | --- | --- | --- |
-| `CoreAPI` | `dotnet test CoreAPI.Test/CoreAPI.Test.csproj` — **needs the local MSSQL container up**, see note | `dotnet build CoreAPI.Test/CoreAPI.Test.csproj` | ⚠️ 2026-09-17 — 367/367 green, 5m40s, **on .NET 6 — superseded by the upgrade below, re-run pending** |
+| `CoreAPI` | `dotnet test CoreAPI.Test/CoreAPI.Test.csproj` — **needs the local MSSQL container up AND schema-current**, see notes | `dotnet build CoreAPI.Test/CoreAPI.Test.csproj` | ⚠️ 2026-09-18 — **84 failed / 299 passed / 383 total**, 1m44s. Build clean. Red for environment drift, not code — see below |
 
-⚠️ **`CoreAPI` moved to .NET 10 on 2026-09-17** — commit `ee28457e`, "CBS-4668: Upgrade Core API
+⚠️ **`CoreAPI` moved to .NET 10 on 2026-09-10** — commit `ee28457e`, "CBS-4668: Upgrade Core API
 to .NET 10". EF Core went 7.0.20 → 10.0.12 and the repo adopted central package management
 (`Directory.Packages.props`). Consequences for running anything there:
 
@@ -49,7 +49,30 @@ to .NET 10". EF Core went 7.0.20 → 10.0.12 and the repo adopted central packag
 - **EF Core 10 renamed generated query parameters** — `@__jobId_Value_0` became `@jobId_Value`. Any
   test asserting on generated SQL by parameter name breaks on the upgrade. Assert on the emitted
   predicate instead.
-- The 367/367 figure above predates all of this and has not been re-established.
+- The old 367/367 figure was taken on a **pre-upgrade checkout** (`fcf24ca5` and friends do not
+  contain `ee28457e`), which is why it read as .NET 6 despite being dated after the merge. Test
+  count is now **383**, so 367 was never a like-for-like baseline. Do not compare the two.
+- The upgrade itself is **clean**: 0 build errors, and none of the 84 failures are net10/EF10
+  related. Verified absent: EF parameter-name breaks, nullable/ImplicitUsings errors, obsolete-API
+  escalations.
+
+⚠️ **The seeded container drifts from `develop` and it looks like a code failure.** As of
+2026-09-18 `coreapi-test-sql` is missing **`jobs_info_long.site_id`**, mapped by
+`JobInfoLongEntity.cs` since commit `6e060d21` (CBS-4590, 2026-09-01). Schema is managed outside
+the repo, so an entity change can land with no migration and the container silently falls behind.
+
+- **One missing column caused 84 of 383 failures** — every fixture that seeds a job via
+  `POST /api/v2/division/{id}/user/{id}/job`. It surfaces as `"Job creation failed."` (57×),
+  `Expected: True / But was: False` (22×), and `NullReferenceException` (5×), never as the real
+  error: the client swallows exceptions into `Either.Neither`, hiding
+  `SqlException: Invalid column name 'site_id'`.
+- **Sibling tables are the tell** — `jobs_info_short` and `jobs_info_medium` both have
+  `site_id int NULL`; only `jobs_info_long` lacks it.
+- Fix is `ALTER TABLE [64recs67o].dbo.jobs_info_long ADD site_id INT NULL;` — type and nullability
+  confirmed against both siblings and the `int? SiteId` property, not guessed.
+- **Before blaming code for a mass failure here, diff the EF model against the container schema.**
+  A full sweep on 2026-09-18 found exactly one delta out of 705 mapped columns, so drift is narrow
+  but real.
 
 ⚠️ **`CoreAPI` is only green with a local SQL Server on `localhost:1433`.** Without it the same
 command returns **192 failed / 175 passed** — every failure an identical
