@@ -2,7 +2,7 @@
 type: design-doc
 ticket: CBS-4436
 team: CBS
-status: decided
+status: in progress
 repos:
   - CoreAPI
 grilled: 2026-09-17
@@ -11,7 +11,9 @@ updated: 2026-09-17
 
 # CBS-4436 — V2 posting analytics wrap
 
-- **Status:** in progress — ⚠️ **Phase 1 COMPLETE.** Q1–Q9 + testing + process all decided.
+- **Status:** in progress — ⚠️ **Phase 1 was complete, then Q3 REOPENED on 2026-09-17 (session 4).**
+  Q1–Q2 and Q4–Q9 plus testing and process stand. **Q3 is open again** — the seam decision is
+  unsettled, and Q4/Q5 lean on it. Phase 2 must not start until Q3 is re-decided.
 - **Ticket:** [[tickets/CBS-4436.md]] — *Discovery: analytics click-to-apply hash missing for postings created via core-api V2 create path — decide whether to add inline wrap*
 - **Jira:** CBS-4436 · Investigation · High · Selected for Development · reporter Shervin Ivari · assignee me
 - **Grilled:** 2026-09-17 via /grilling — **complete**
@@ -127,7 +129,11 @@ Phase 1 still in progress — Q3 onward are unanswered. Do not let a Planner rea
   Reasoning: the sproc facts below show three distinct causes of a null `clickToApplyUrl`, and the
   ticket names only one. The wrap rate can flip *where* the fix goes; the null-cause breakdown can
   flip *whether this is the right fix at all*. Same blocked server, strictly more decisive.
-- **Q3 — decided 2026-09-17: (ii) post-commit in `PostingService.CreatePostingAsync`.** Not (i).
+- **Q3 — ⚠️ REOPENED 2026-09-17 (session 4). This entry is NO LONGER a settled decision** — see
+  [Open questions](#open-questions) for the evidence that reopened it, in particular that seam (ii)
+  leaves the create response and the SNS `Create` payload carrying `clickToApplyUrl: null`.
+  The original text is preserved below as the record of what was decided on 2026-09-17 and why.
+- ~~**Q3 — decided 2026-09-17: (ii) post-commit in `PostingService.CreatePostingAsync`.** Not (i).~~
   Seam (i) is not merely risky — `usp_CreateWrappedUrl` reads
   `select js.site_id from jobs_sites js where js.id=@posting_id` with **no `NOLOCK`**, so a raw
   `SqlCommand` on its own connection inside `ExecuteInTransactionWithRetryAsync` blocks on the lock
@@ -434,17 +440,68 @@ items carry it.
   prod `64recs67o` before Phase 2 ships. MSSQL MCP was down all of 2026-09-17. Everything in
   "Sproc facts" — including the three-causes finding that drove Q2 — rests on that snapshot.
 
-- **OPEN QUESTION — does Q3 deserve a second look?** Q3 chose seam (ii) partly on the argument that
-  a raw `SqlCommand` inside `ExecuteInTransactionWithRetryAsync` sits on its own connection and
-  self-deadlocks. Using `Database.ExecuteSqlRawAsync` instead puts the call on the context's **own**
-  connection and transaction, so that specific deadlock does not arise and **seam (i) is more viable
-  than the Q3 write-up claims**. (ii) still looks right on the surviving arguments — retry replay,
-  transaction lock-hold time on hot tables, and Q4's non-fatal contract only being coherent
-  post-commit. **Raised with Neru 2026-09-17; not yet answered.**
+- **OPEN QUESTION — Q3 IS REOPENED. The recorded reasoning does not survive review.**
+  Investigated 2026-09-17 (session 4) against `CoreAPI` HEAD `fcf24ca5` — the same commit the rest of
+  this doc cites. Every line below was read, not inferred. **Neru decides; no decision reached.**
 
-- **OPEN QUESTION — the reporter has not been told** that the ticket's proposed seam is unsafe, that
-  there are three causes rather than one, or about the third writer. Worth a comment on CBS-4436
-  before Phase 2 starts, so the design is not a surprise at review.
+  **The three surviving arguments for seam (ii) do not hold as written:**
+
+  | Argument | Verdict | Evidence |
+  | --- | --- | --- |
+  | Retry replay | **WEAKENED** | `PostingCreateCommands.cs:277-283` — the whole delegate replays, including `BeginTransactionAsync`. But replay only follows a rollback, so an *in-transaction* wrap is rolled back with it and re-done atomically. No double-insert; the sproc is idempotent besides. This argues against a raw `SqlCommand` on its own connection — the seam the re-look already discards. |
+  | Lock-hold time | **WEAKENED** | The transaction already holds a multi-table graph read per posting — `GetPostingAsync` at `PostingCreateCommands.cs:197-198`, spanning `JobSiteStatuses`, `JobEmployAnalytics`, `Job→Division→Company→PartnerSite`, `JobFeatures`, `OrderItems` (`PostingQueries.cs:44-89`), once per parent *and every bundle child*. One sproc round-trip is second-order against that. `CommandTimeout` 30s (`DataContextConfiguration.cs:11`). |
+  | Q4 non-fatal only coherent post-commit | **REFUTED as stated** | "A failing wrap must not fail the create" is achievable in-transaction: catch, log, continue, let `CommitAsync` run (`PostingCreateCommands.cs:292`). The sub-claim that failure would invite a duplicate-posting retry is *only* true post-commit — an in-transaction rollback leaves nothing behind. |
+
+  **New fact neither option accounted for — this is the decision-relevant one:**
+
+  - **Seam (ii) leaves the create response and the SNS payload still null.** `Posting.ClickToApplyUrl`
+    derives from the `job_employanalytics.Hash` read at `PostingQueries.cs:50-55`, via `SetApplyUrls`
+    (`:95` → `:240-246`, `postingHash is null ? null : …`). That read happens **inside** the
+    transaction (`PostingCreateCommands.cs:197-198`), strictly before any post-commit wrap.
+  - Consequence: `POST /api/v2/posting` returns `clickToApplyUrl: null` **and** `hostedApplyUrl: null`
+    on the create response permanently; the value appears only on a later `GET`. The ticket's symptom
+    is exactly "clickToApplyUrl is null", so a caller reading the create response sees no change.
+  - The same instance is handed to the SNS `Create` notification —
+    `CoreAPI.DataAccess/Services/PostingService.cs:131-134` → `PostingNotification.Posting` is the
+    full object (`CoreAPI.Public/Domains/Posting/PostingNotification.cs:14,16-20`). **Every downstream
+    consumer also gets null.**
+  - Patching `posting.ClickToApplyUrl` app-side would be **wrong** — the sproc legitimately no-ops when
+    `is_pending_tracking = 0` or masking is off (causes 2 and 3). That would invent a URL for a row
+    that does not exist. Fixing it at (ii) therefore needs a re-read, and the wrap must be ordered
+    *before* the SNS send — neither is scoped in the Q3 write-up.
+  - **At seam (i), placing the wrap before `GetPostingAsync` makes the response and the notification
+    correct for free.**
+
+  **The original deadlock claim was correct**, and V1 confirms the premise: `AnalyticsService.cs:188-209`
+  builds a raw `SqlCommand`, run by `DataAccess.ExecuteSqlCommandAsync` on its own long-lived
+  `SqlConnection` with no transaction (`DataAccess.cs:17,29,64-67,78-82`). It *is* neutralised by
+  `Database.ExecuteSqlRawAsync` in principle.
+
+  **Two gaps that cannot be closed from the code:**
+
+  - ⚠️ **Does a SQL error inside `usp_CreateWrappedUrl` doom the transaction**, so the following
+    `CommitAsync` throws? Depends on the sproc's `SET XACT_ABORT` / `TRY…CATCH` and error severity.
+    **This is the one live risk for seam (i), and it is GATE 2 work** — the sproc DDL is not in the repo.
+  - ⚠️ **`Database.ExecuteSqlRawAsync` has no precedent in this repo.** A search for
+    `ExecuteSqlRaw* / ExecuteSqlInterpolated / FromSqlRaw / FromSqlInterpolated / SqlQueryRaw` returns
+    **zero hits**. The only `Database.*` calls are `CanConnectAsync`, `CreateExecutionStrategy`,
+    `BeginTransactionAsync`, `EnsureCreated`, `GetDbConnection`. It is a first-of-its-kind pattern here,
+    not the tidy-up the implementation note implies.
+
+  **Confirmed on: `EnableRetryOnFailure()` is on with stock defaults** (`DependencyInjection.cs:162-166`,
+  applied to the write `DataContext` at `:75-76`); repo comments put that at 6 retries / 30s backoff
+  (`tests/CoreAPI.Tests.Integration/Infrastructure/CoreApiFactory.cs:307-311`, capped to 1 in the test
+  harness at `:335-338`). Deadlock replay is not theoretical — `jobs` is documented in-repo as "the
+  chronic deadlock victim against concurrent job writes (SqlException 1205)"
+  (`CoreAPI.DataAccess/Features/JobFeatures/Common.cs:40-42`).
+
+- ~~**OPEN QUESTION — the reporter has not been told**~~ — **CLOSED 2026-09-17 (session 3).** Comment
+  `880451` on CBS-4436 covers all three: the proposed seam is unsafe, there are three causes rather
+  than one, and widening the backstop breaks the PostMaster contract. Verified live 2026-09-17
+  (session 4) — the phrases "seam is unsafe", "third writer" and "PostMaster contract" all match a
+  `comment ~` search on the issue, while a description-only control phrase does not.
+  ⚠️ The issue's `updated` field still reads `2026-09-16T19:54`, which is *earlier* than the comment.
+  Unexplained; the text evidence is direct, so the comment stands as posted.
 
 ### Resolved this session — index only
 
