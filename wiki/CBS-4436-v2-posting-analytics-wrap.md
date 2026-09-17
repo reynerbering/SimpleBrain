@@ -281,9 +281,12 @@ Run 2026-09-17 against the **`athena-alb-prod`** Grafana datasource (`alb_logs.a
 
 ## Sproc facts
 
-Read 2026-09-17 from the **DataGrip prod cache, snapshot 2026-07-08** — *not a live read*.
-`usp_CreateWrappedUrl` carries a `20260527` change, so the snapshot post-dates it; anything shipped
-after 2026-07-08 is not reflected. MSSQL MCP was down. Re-verify live before Phase 2.
+**✅ LIVE-VERIFIED 2026-09-18 (GATE 2).** Originally read 2026-09-17 from the DataGrip prod cache
+(snapshot 2026-07-08) while MSSQL MCP was down. Re-read live against `prod`, `uat` **and** `qa`
+`64recs67o`: `usp_CreateWrappedUrl` is **byte-identical across all three** (bar one space in the
+`create  procedure` header) and carries the same `DBA-2476 / 20260527` version the snapshot showed.
+**The cache was faithful — everything below stands, including the three-causes finding that drove Q2.**
+No environment drift. See [GATE 2 findings](#gate-2--live-re-read-2026-09-18).
 
 ### `dbo.usp_CreateWrappedUrl` — the ticket's Q6 premise is only half right
 
@@ -328,6 +331,59 @@ re-finds those postings every cycle and can never fix them. Not in the ticket.
   per-posting wrap without a rewrite.
 - `#temp` is an unbounded scan of active `jobs_sites` (with `forceseek` hints). Un-narrowed, the
   output could be very large.
+
+### GATE 2 — live re-read 2026-09-18
+
+Two things were asked of GATE 2. Both are answered.
+
+**(a) Snapshot fidelity — PASS.** Covered in the preamble above. No drift, prod/uat/qa identical.
+
+**(b) Does a SQL error inside `usp_CreateWrappedUrl` doom the transaction? — NO, except deadlock,
+and deadlock already dooms it anyway.** This was *the* live risk against seam (i). It is retired.
+
+Read from `sys.sql_modules` and `sys.triggers` on prod, not inferred:
+
+| Property | `usp_CreateWrappedUrl` | nested `usp_oneclick_posting_custom_apply_url` |
+| --- | --- | --- |
+| `SET XACT_ABORT` | absent | absent |
+| `BEGIN TRAN` | absent | absent |
+| `TRY…CATCH` | absent | absent |
+| `RAISERROR` / `THROW` | absent | absent |
+| `INSERT … EXEC` nesting (would be error 8164, batch-aborting) | n/a | **absent** |
+
+- **No trigger on `job_employanalytics`.** The only trigger across the three tables the sproc touches
+  is `trg_p_sites_after_insert` on `p_sites`, which the sproc only *reads*. No hidden doom path.
+- Nothing sets `XACT_ABORT ON`, and SqlClient's default is OFF. So ordinary errors are
+  **statement-level**: `XACT_STATE()` stays `1`, the transaction remains committable, and Q4's
+  "catch, log, continue → `CommitAsync`" works exactly as written.
+- The NOT NULL columns are **not** a failure mode. `hash` and `img_url` are both NOT NULL, but V1
+  computes both from the generated hash and neither can be null
+  (`CoreAPI.Endpoints.V1/Core/Services/AnalyticsService.cs:192-193`, HEAD `fcf24ca5`). Error 515 is off
+  the table.
+- What survives `XACT_ABORT OFF` as genuinely doom-class: **deadlock 1205** and severity ≥ 17.
+  **But 1205 already dooms the create transaction through its existing statements** — `jobs` is the
+  documented chronic victim (`CoreAPI.DataAccess/Features/JobFeatures/Common.cs:40-42`) — and
+  `CreateExecutionStrategy()` + `EnableRetryOnFailure()` exist precisely to replay it
+  (`PostingCreateCommands.cs:277-283`). **Seam (i) introduces no doom class the transaction does not
+  already carry.** It enlarges the lock footprint of an already-deadlock-prone transaction; it does
+  not add a new kind of failure.
+
+⚠️ **Rider that must reach the Planner.** Q4's "non-fatal wrap" cannot be a blanket
+`catch (Exception) { log; continue; }` at seam (i). On a doomed transaction, swallowing the error and
+falling through to `CommitAsync` throws anyway — turning a retryable deadlock into a failed create.
+The catch has to **re-throw when the transaction is dead** (`SqlException.Number == 1205`, or
+`XACT_STATE() = -1`) so the execution strategy replays, and swallow only the committable cases.
+
+#### Also found: the PostMaster sweep degrades silently
+
+`PM.usp_get_jobs_applyurl_not_wrapped` wraps its whole body in `TRY…CATCH`, and the `CATCH`
+**`SELECT`s the error columns as a result set** instead of rethrowing (`ERROR_NUMBER()`,
+`ERROR_MESSAGE()`, …). So a failure inside the sweep returns *a row*, not an exception.
+
+- To a caller expecting "the list of jobs still needing a wrap", **a broken sweep is indistinguishable
+  from a clean one that found nothing.** The backstop can be dead without anyone being paged.
+- Not in CBS-4436's scope, but it undercuts "the PostMaster sweep will catch it" as a safety argument
+  anywhere in this doc. Flag it; do not lean on it.
 
 ### Seam facts for Q3
 
@@ -435,15 +491,18 @@ items carry it.
   `-Execute`). **This can invalidate the entire direction:** if most of the 35 postings stay null,
   the ticket's root cause is wrong and Q2 must be reopened before any implementation.
 
-- **OPEN QUESTION — GATE 2: both sprocs were read from a 2026-07-08 DataGrip cache snapshot, not
-  live.** `usp_CreateWrappedUrl` and `PM.usp_get_jobs_applyurl_not_wrapped` must be re-read against
-  prod `64recs67o` before Phase 2 ships. MSSQL MCP was down all of 2026-09-17. Everything in
-  "Sproc facts" — including the three-causes finding that drove Q2 — rests on that snapshot.
+- ~~**OPEN QUESTION — GATE 2: both sprocs were read from a 2026-07-08 DataGrip cache snapshot, not
+  live.**~~ — **CLOSED 2026-09-18.** Re-read live against prod, uat and qa `64recs67o`. The snapshot
+  was faithful (no drift, all three identical), and the doom-transaction question is answered: **no,
+  except deadlock, which already dooms the transaction anyway.** Full findings and the catch-rethrow
+  rider in [GATE 2 — live re-read](#gate-2--live-re-read-2026-09-18). **Q3 is now unblocked.**
 
 - **OPEN QUESTION — Q3 IS REOPENED. The recorded reasoning does not survive review.**
-  **DEFERRED by Neru 2026-09-18: Q3 is not re-decided until GATE 2 lands.** The doom-transaction
-  question is the deciding risk for seam (i) and cannot be answered without the live sproc DDL, so
-  deciding now would be guessing. GATE 2 is therefore a hard prerequisite for Q3, and Q3 for Phase 2.
+  **Deferred by Neru 2026-09-18 until GATE 2 landed. GATE 2 HAS NOW LANDED (same day)** — the
+  doom-transaction question came back **in seam (i)'s favour**: no new doom class, deadlock excepted
+  and already handled by the execution strategy. The last technical objection to seam (i) is gone, and
+  seam (ii) still leaves the create response and the SNS payload null (below). **Q3 is decidable now
+  and still Neru's call — it remains Phase 2's hard prerequisite.**
   Investigated 2026-09-17 (session 4) against `CoreAPI` HEAD `fcf24ca5` — the same commit the rest of
   this doc cites. Every line below was read, not inferred. **Neru decides; no decision reached.**
 
