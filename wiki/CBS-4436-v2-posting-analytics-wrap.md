@@ -851,6 +851,76 @@ items carry it.
 > After the pipeline runs, append a dated revision below — never rewrite the history above it.
 > One new section per post-implementation pass. Delete this blockquote and the stub when filling the first one in.
 
+## 2026-09-18 — revision: pipeline complete, APPROVED
+
+**Outcome:** Planner -> Coder -> Tester -> Reviewer, two rounds. **Round 2 verdict: APPROVE.**
+**377/377 tests.** Branch `feat/CBS-4436-v2-posting-analytics-wrap`, worktree
+`C:\JT Repositories\CoreAPI-CBS-4436`. **Not merged, not committed** — the pipeline never merges.
+
+**Changed by the review** (round 1 returned NEEDS WORK; both fixes applied and re-approved)
+
+- **`XACT_STATE() = 0` is now doomed when an ambient transaction exists.** Originally treated as
+  committable. Zero means no active transaction on the session, and the only caller runs inside
+  `ExecuteInTransactionWithRetryAsync`'s explicit transaction — so 0 there means the transaction
+  vanished. The `CurrentTransaction is not null` guard keeps the right answer for a no-transaction
+  (V1) caller. Reviewer confirmed a server-side zombied transaction still leaves EF's
+  `CurrentTransaction` non-null, so the guard fires exactly where intended, and that `TransactionScope`
+  has **zero hits** in the repo, so that false-negative case does not exist here.
+- WARNING — **a real regression was caught and fixed: V1's per-target recovery.** The first
+  implementation moved V1's wrap into the shared service and lost its **per-target** try/catch, so one
+  failing target abandoned the rest. That weakens `/internal/analytics/RegisterJobs` — **the
+  remediation path GATE 1 used, and the one that would repair prod's 21.** Restored for V1 only via an
+  exception filter (`catch (Exception ex) when (continueOnTargetFailure && ...)`), so **V2 never
+  enters the catch at all** and its propagation stays byte-for-byte identical. Skipped targets now log
+  an `AnalyticsWrapTargetSkipped` event with posting/job/site/recruiter ids — a silent skip there would
+  have recreated this ticket's own failure class.
+
+**Three residual deltas in V1** — inherent to Q5's relocation, accepted, recorded so they are not
+later rediscovered as bugs:
+
+- Per-target log line changed: was `"An error occurred for posting id {id}"`, now a structured
+  `AnalyticsWrapTargetSkipped` event. **Behaviour identical, telemetry richer — say "restored", not
+  "identical".**
+- **V1's sproc-call timeout drops 90s -> 60s.** V1 used `ApplicationSettings.SqlTimeout`
+  (`appsettings.json:34` = 90); the EF context uses `EntityFrameworkTimeout` (`:20` = 60). Noise for a
+  few index seeks, but a real number that changed.
+- Provider change `System.Data.SqlClient` -> `Microsoft.Data.SqlClient`, and V1's dedicated connection
+  -> the request-scoped EF connection. Same connection string, login and database; all three call
+  sites `await` in-request. No semantic change.
+
+**N5 — resolved from existing evidence, no further write needed**
+
+N5 asked whether the **real** sproc actually populates `tracking_url` / `wrapped_url`, or merely
+creates a row — a row written with NULL `tracking_url` is **permanently unfixable**, because the
+sproc's `@id is null` guard never revisits it. No test in the suite can answer this: both stubs bypass
+every gate the real sproc has.
+
+**GATE 1's own data answers it.** The 20 rows it created in UAT (`202705814`-`202705833`):
+`tracking_url` null in **0**, `wrapped_url` null in **0**, `apply_url_masking = 1` on **20**, shortest
+`tracking_url` 50 characters. The real sproc, under real gate conditions, populates correctly.
+
+WARNING — **precise residual, not hand-waved:** GATE 1 invoked the sproc through V1's
+`CommandType.StoredProcedure` (named parameters). The new code uses **positional**
+`EXEC dbo.usp_CreateWrappedUrl @posting_id, @job_id, @hash, @image_url` via `ExecuteSqlRawAsync`. That
+exact statement form has **not been executed against the real sproc**. The parameter order was
+verified by reading the live DDL (GATE 2) and independently by the Reviewer, but not run. Closing it
+fully needs the branch deployed to UAT, and UAT currently has **zero** cause-1 postings left to test
+against.
+
+**Reviewer flagged — still open, all non-blocking**
+
+- **N1** `AggregateException.InnerExceptions` — only the first is walked. Less relevant now: the only
+  new swallow path is unreachable by cancellation.
+- **N4 / N6** — use named `EXEC` arguments, and pin the hash argument order in a test. Both are
+  future-proofing; both orders verified by reading, twice.
+- The `XACT_STATE() = 0`-with-transaction branch remains **untestable** in this harness — forcing it
+  needs `XACT_ABORT`, which the real sproc does not set. Documented, not forged.
+
+WARNING — **`CoreAPI.TestFramework/CoreApiTestFramework.cs` (`jtmssql` -> `localhost`) must be
+EXCLUDED from any commit on this branch.** It is a documented local-setup step (repo `CLAUDE.md:33`),
+byte-identical to Neru's own long-standing uncommitted change in the other worktree. Committing it
+would point teammates and CI at `localhost`.
+
 ## 2026-09-18 — revision: Planner stage
 
 **Changed**
