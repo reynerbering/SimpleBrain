@@ -2,7 +2,7 @@
 type: design-doc
 ticket: CBS-4436
 team: CBS
-status: in progress
+status: decided
 repos:
   - CoreAPI
 grilled: 2026-09-17
@@ -11,10 +11,9 @@ updated: 2026-09-18
 
 # CBS-4436 — V2 posting analytics wrap
 
-- **Status:** in progress — **Q3 (seam (i)), Q4 (non-fatal) and GATE 2 all settled 2026-09-18.**
-  **GATE 1 is the sole remaining blocker**: Neru rejected the substituted DB-state method, so the
-  specified `RegisterJobs` flip-test must actually run — against a rebuilt current cohort, since the
-  original one is spent.
+- **Status:** **decided 2026-09-18. Phase 1 is complete and Phase 2 is unblocked.** Q1–Q9 answered,
+  GATE 1 passed 20/20 in UAT, GATE 2 cleared, Q3 = seam (i), Q4 = non-fatal. **No `OPEN QUESTION`
+  markers remain.** The Planner rider is in the Q3 and Q4 entries: re-throw on a dead transaction.
 - **Ticket:** [[tickets/CBS-4436.md]] — *Discovery: analytics click-to-apply hash missing for postings created via core-api V2 create path — decide whether to add inline wrap*
 - **Jira:** CBS-4436 · Investigation · High · Selected for Development · reporter Shervin Ivari · assignee me
 - **Grilled:** 2026-09-17 via /grilling — **complete**
@@ -561,6 +560,48 @@ FROM PM.campaign_posting WITH (NOLOCK)
 ⚠️ **This is out of CBS-4436's scope but should not die here.** A scheduled job that has silently
 returned zero rows since 2023 is its own defect, and it is not this ticket's to fix.
 
+### GATE 1 — flip-test result (UAT, 2026-09-18)
+
+**PASS. 20 of 20 flipped. 0 stayed null.** The gate's kill condition did not trigger; the ticket's root
+cause is confirmed by the method that was actually specified.
+
+**Run in UAT, not prod — Neru's call, and the better venue.** Validity rests on three checks, each
+verified rather than assumed:
+
+| Check | Result |
+| --- | --- |
+| `usp_CreateWrappedUrl` prod vs UAT vs QA | **byte-identical** (GATE 2) — the test exercises the same code |
+| UAT is a genuinely separate dataset | posting `287052122` = job 41583399 / Indeed on UAT, job 40265706 / Bay East Center on prod |
+| UAT had a real cause-1 cohort | **20** of 398,817 live active postings — nearly identical profile to prod's 21 of 442,461 |
+
+Method: capture before-state → `POST https://uat-core-api.jobtarget.com/internal/analytics/RegisterJobs`
+with the 20 ids → re-read. **Before: 20/20 null. After: 20/20 populated.**
+
+Corroborated two ways, because one of them is untrustworthy:
+
+- **The endpoint's own response is worthless as a signal** — it returned `{"status":0,"message":"success"}`,
+  which `RunJobsAsync` emits unless an exception escapes two nested catch-alls
+  (`AnalyticsController.cs:92-125`, `AnalyticsService.cs:212-224`). Predicted in advance; confirmed.
+- **DB truth:** 20 new `job_employanalytics` rows, ids `202705814`–`202705833` — **contiguous, exactly
+  20**, all `tracking_url` non-null, `wrapped_url` non-null, `apply_url_masking = 1`. The contiguity
+  independently confirms no media-package children were expanded, matching the pre-check.
+
+**Bonus corroboration of the Q3 seam argument.** UAT returned
+`https://uat-click2apply.jobtarget.com/<hash>`, not the `https://www.click2apply.net/<hash>` the sproc
+hardcodes into `tracking_url`. That is not a contradiction — it is `SetApplyUrls` composing the
+response from **`clickToApplyBaseUrl` config + the hash read from `job_employanalytics`**
+(`PostingQueries.cs:240-246`). **Observed proof that the API's `clickToApplyUrl` derives from the hash
+row** — which is precisely why seam (ii) would leave the create response null, and why seam (i) fixes
+it for free.
+
+⚠️ **What this does and does not establish.** It proves the mechanism: on a posting with all gates
+green, invoking the wrap creates the row and populates the URL. It does **not** re-prove that prod's 21
+are cause 1 — that was measured directly from their gate state. The two together are what close the
+gate.
+
+⚠️ **Prod was not touched.** The 21 prod postings remain unwrapped. Remediating them is a separate,
+deliberate act that nobody has authorised.
+
 ### Seam facts for Q3
 
 - `PostingService` holds `_hostedApplySettings` as a field (`PostingService.cs:40`), so `HashIdSalt`
@@ -678,7 +719,12 @@ items carry it.
   **Neru decides.** Whichever way it goes, the GATE 2 rider still binds: the catch must re-throw on a
   dead transaction (`SqlException.Number == 1205` / `XACT_STATE() = -1`), never blanket-swallow.
 
-- **OPEN QUESTION — GATE 1 IS NOT SATISFIED. Neru rejected the substituted method 2026-09-18.**
+- ~~**OPEN QUESTION — GATE 1 IS NOT SATISFIED.**~~ — **CLOSED 2026-09-18. GATE 1 PASSES, 20/20.**
+  The specified flip-test was run, on the method Neru required, in **UAT** (his call — better venue
+  than prod). See [GATE 1 — flip-test result](#gate-1--flip-test-result-uat-2026-09-18).
+  **No `OPEN QUESTION` markers remain. Phase 2 is unblocked.**
+
+- ~~*(superseded)* **GATE 1 IS NOT SATISFIED. Neru rejected the substituted method 2026-09-18.**~~
   The DB-state evidence below stands as *evidence* and is not withdrawn — but it is **not** the
   flip-test the gate specified, and Neru declined to accept it in place of one. **GATE 1 therefore
   still blocks Phase 2.**
