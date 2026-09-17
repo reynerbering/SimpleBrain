@@ -2,7 +2,7 @@
 type: design-doc
 ticket: CBS-4646
 team: CBS
-status: decided
+status: in progress
 repos:
   - CoreAPI
 grilled: 2026-09-18
@@ -11,7 +11,7 @@ updated: 2026-09-18
 
 # CBS-4646 — Site delete requirement and product duration check on stop
 
-- **Status:** decided — four verification gates still unrun, see [Open questions](#open-questions)
+- **Status:** in progress — **D2 and D8 are reopened.** Prod verification on 2026-09-18 tripped D8's own gate: the `requires_pending_delete` setting is far too sparse for "absent = not required" to be safe. D1, D3–D7 and D9–D12 stand. Do not start Phase 2. See [the prod-verification revision](#2026-09-18--revision-prod-verification).
 - **Ticket:** [[tickets/CBS-4646.md]]
 - **Jira:** [CBS-4646](https://jobtarget.atlassian.net/browse/CBS-4646) — Story, Backlog, High, unassigned, label `CBSWk38of2026`, reporter Shiela Mojeno. Verified via Atlassian MCP 2026-09-17.
 - **Grilled:** 2026-09-18 via `/grilling`
@@ -146,10 +146,14 @@ Read 2026-09-18 from the DataGrip offline cache (see [[protocols/repo-memory.md]
 
 ## Open questions
 
-- OPEN QUESTION: **What exact type and length is `job_distribution_transmit_site_setting.value`?** D7 assumes `string` compared `== "1"`. **Narrowed on 2026-09-18** — `usp_job_distribution_transmit_site_settings_get` pivots `MAX([value])` into `[password]` and `[port]`, so it is certainly character data and the `== "1"` comparison is very likely right. Still open on `varchar` vs `nvarchar` and `max_length`, which the EF mapping needs. Original risk, now much reduced: a wrong guess means the gate silently never matches and *every* site looks like "does not require deletion" — the dangerous direction (D8).
-- OPEN QUESTION: **Is `requires_pending_delete = 1` actually populated for the integrated sites that need close requests?** This is D8's gate. DBA-2636's precedent covers non-integrated sites only. If the setting turns out to be sparse across cloud/OneClick sites, the design gets revisited rather than shipped.
-- OPEN QUESTION: **Does the seeded `coreapi-test-sql` container have `job_distribution_transmit_site_setting`?** It is a restore of a real database so very likely yes, but if not, the new entity fails at query translation and the table must be added to the integration-test schema scripts.
-- OPEN QUESTION: **Which of the five write paths does each of Shiela's nine sites actually take?** Cannot be determined from code alone. Not a blocker on any decision — D5 gates all five — but it is how we confirm the fix landed.
+Three of the four were **answered against prod on 2026-09-18** — full results and consequences in
+[the prod-verification revision](#2026-09-18--revision-prod-verification). Summarised here so this
+section stays readable at a glance:
+
+- ~~OPEN QUESTION: **What exact type and length is `job_distribution_transmit_site_setting.value`?**~~ — **ANSWERED 2026-09-18, prod.** `varchar(500) NOT NULL`. `name` is `varchar(25) NOT NULL`. **D7 is correct as written**: map as `string`, compare `== "1"`.
+- ~~OPEN QUESTION: **Is `requires_pending_delete = 1` actually populated for the integrated sites that need close requests?**~~ — **ANSWERED 2026-09-18, prod. NO — and this trips D8's gate.** Only **12 of 6,217** strict-`IsCloud` sites carry the flag. Of Core V2's own 173,776 delete-status writes in the last 30 days, **99.3% (172,545) land on unflagged sites**. **D2 and D8 must be re-decided before any implementation.**
+- OPEN QUESTION: **Does the seeded `coreapi-test-sql` container have `job_distribution_transmit_site_setting`?** Still open — not checked, and moot until D2/D8 are resolved. If missing, the fix is an entry in `CoreAPI.Test/Scripts/000_schema_drift.sql` (see the pre-implementation revision), not the other suite's schema scripts.
+- ~~OPEN QUESTION: **Which of the five write paths does each of Shiela's nine sites actually take?**~~ — **ANSWERED 2026-09-18, prod.** All nine have **no setting row at all** — not even an explicit `'0'`. Feature breakdown is in the revision. This is the finding that exposes the semantics problem: the rule cannot tell Shiela's 9 sites apart from the other 745 Core V2 stops postings on.
 
 ### How to close them
 
@@ -269,3 +273,111 @@ rather than left to surprise Phase 2.
   integration-test schema scripts, which belong to the *other* suite. Note the two suites are
   separate: `tests/CoreAPI.Tests.Integration` builds its own schema from `Scripts/`, so OQ3 only
   bites the legacy project.
+
+## 2026-09-18 — revision (prod verification)
+
+Not a pipeline pass. The MCP servers came back, OQ1/OQ2/OQ4 were run against **`prod-64recs-mssql`,
+reads only** (`mssql_execute_query` / `mssql_list_columns`; no write tool was called). **The result
+reopens D2 and D8.**
+
+### What the data says
+
+**OQ1 — answered. D7 was right.**
+
+| column | type |
+| --- | --- |
+| `transmit_setting_id` | `int NOT NULL` |
+| `transmit_site_id` | `int NOT NULL` |
+| `name` | `varchar(25) NOT NULL` |
+| `value` | **`varchar(500) NOT NULL`** |
+| `added` / `updated` | `smalldatetime NOT NULL`, default `getdate()` |
+| `removed` | `smalldatetime NULL` |
+| `active` | `bit NOT NULL`, default `1` |
+
+Map `value` as `string`, compare `== "1"`. No change to D7.
+
+**OQ2 — answered, and it fails the gate.**
+
+- Sites carrying the setting at all: **113** — 108 with `'1'`, 5 with `'0'`.
+- Strict `Common.IsCloud` sites (site active + pipeline enabled/active + `external_job_posting_integration` active + **not** php): **6,217. Flagged: 12. Unflagged: 6,205.**
+- `pending_delete` / `pending_automated_delete` rows written in the last 30 days, **all writers**: 595,284 across 953 sites — 36,127 on flagged sites, **559,158 on unflagged**.
+- Split by writer over the same window: `core_api_posting_stop` **173,776** · `usp_oneclick_posting_stop` 96,106 · everything else ~325k.
+- **Core V2's own share — the in-scope blast radius under D1:** 173,776 rows across **754** sites, of which **1,231 (0.7%) are on flagged sites and 172,545 (99.3%) are not.**
+
+So the rule as decided would suppress **~172.5k close requests per 30 days**, about **99.3%** of everything Core V2 currently sends. The ticket describes cleaning up 43 postings.
+
+**OQ4 — answered.** All nine of Shiela's sites have **no setting row at all**, not even an explicit `'0'`:
+
+| site_id | site_name | jt_type | pipeline | ext_posting | php | auto_delete | programmatic | setting row |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 4416 | EmployOklahoma | 9 | 0 | 1 | 1 | 1 | 0 | none |
+| 5258 | WorkForce West Virginia | 9 | 0 | 1 | 1 | 0 | 0 | none |
+| 5264 | Hire Wyoming | 9 | 0 | 1 | 1 | 0 | 0 | none |
+| 15012 | Indeed | 1 | 1 | 1 | 0 | 0 | 1 | none |
+| 17466 | CompliancePost Veteran and Disability (OFCCP) | 3 | 1 | 1 | 0 | 0 | 1 | none |
+| 20868 | Hire Patriots | 1 | 0 | 1 | 0 | 0 | 0 | none |
+| 23306 | Colorado State University - College of Business | 1 | 0 | 1 | 1 | 1 | 0 | none |
+| 25393 | JobTarget Programmatic | 1 | 1 | 1 | 0 | 0 | 1 | none |
+| 26325 | CounselorJob.com | 1 | 0 | 1 | 0 | 0 | 0 | none |
+
+### Why this breaks the design
+
+**The rule cannot tell the 9 reported sites apart from the 745 others.** All of them have no setting
+row. "Absent = not required" is not a discriminator here — it is a near-universal default.
+
+**The 5 explicit `'0'` rows are the tell.** If absence already meant *not required*, nobody would
+write an explicit `'0'`. Their existence says the column was meant to be **configured either way**,
+and absence means *unconfigured*, not *no*. DBA-2636 could adopt "absent = skip" safely because it
+runs over *non-integrated* postings, where that default is harmless. On the integrated path it is not.
+
+**And it would break the ticket it exists to unblock.** Site **25461 — SEEK | JobsDB | JobStreet —
+has no `requires_pending_delete` row either.** Under D2, every SEEK stop takes the
+expire-without-close path, including early ones. PJO-11160's AC says the opposite in as many words:
+
+> A `closePostedPositionProfile` request is still sent when a posting is stopped before completing
+> its product duration.
+
+That is a direct contradiction, not a tuning problem. **D2 as decided would ship the failure mode
+PJO-11160 was filed to prevent.**
+
+### What stands and what does not
+
+- **Reopened: D2** (absent → expire) and **D8** (data-driven for all sites, no flag). Both rest on
+  the assumption this data just refuted.
+- **Unaffected: D1, D3, D4, D5, D6, D7, D9, D10, D11, D12.** The duration semantics, the five write
+  sites, the `PostingUpdate` plumbing, the transmit suppression, the entity and lookup shape, the
+  test strategy and the baseline gate are all independent of how the *site* predicate is defined.
+- **OQ3 is untouched** and stays open, but it is moot until D2/D8 resolve.
+
+### Options for the re-decision — not decided, Neru's call
+
+- **(A) Invert the default** — bypass only on an explicit `value = '0'`; absence means *requires
+  deletion*, today's behaviour. Safe, and it makes the 5 explicit `'0'` rows meaningful. But it fixes
+  **none** of Shiela's 9 sites, because none of them have a row. Ships a mechanism with no data behind
+  it and leaves the reported bug open pending a backfill.
+- **(B) Keep the decided semantics, but gate on a backfill** — the rule is right, the data is not
+  ready. Requires DBA to populate `requires_pending_delete` across the integrated estate first. That
+  is a data project of ~6,200 sites and is not ours.
+- **(C) Ship the duration half only.** D3/D4 do not need the site predicate at all if the rule becomes
+  *duration reached → expire, regardless of flag*. That satisfies PJO-11160's primary AC (natural
+  expiry → Expired, no close) and leaves early stops on today's path, close request intact. It does
+  **not** address Shiela's DES-noise complaint. Smallest safe step, and it unblocks the ticket that
+  CBS-4646 blocks.
+- **(D) Site allowlist** — previously rejected, but the data makes it look better than it did: 25461
+  plus the 9 reported sites, expanded as the setting gets populated. Still config nobody prunes.
+
+**My recommendation: (C) now, (B) as the follow-up**, and take the numbers above back to Shiela and
+Nikole — the 99.3% figure reframes the ticket from "cleanup" to "estate-wide behaviour change", which
+is a product decision, not an implementation detail.
+
+### Queries
+
+All five are reproducible; the originals are in [How to close them](#how-to-close-them). Two
+gotchas for whoever re-runs them:
+
+- **The MCP tool rejects CTEs** — `WITH …` fails the "SELECT only" guard. Rewrite with `EXISTS`
+  subqueries or a derived table.
+- **It also rejects `SUM(CASE WHEN EXISTS(...))` directly** ("aggregate on an expression containing
+  a subquery") — wrap the row-level `CASE` in a derived table and aggregate outside it.
+- Grouping `jobs_sites_status` by `created_by`/`process` over a 7- or 30-day window **times out at
+  60s**. Counting with `SUM(CASE WHEN created_by = … )` over the same window returns fine.
