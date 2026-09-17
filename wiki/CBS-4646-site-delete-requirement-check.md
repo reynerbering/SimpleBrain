@@ -12,7 +12,7 @@ updated: 2026-09-18
 # CBS-4646 — Site delete requirement and product duration check on stop
 
 - **Status:** decided — four verification gates still unrun, see [Open questions](#open-questions)
-- **Ticket:** [[tickets/CBS-4646.md]] — *file does not exist yet; create on the first Phase 2 session*
+- **Ticket:** [[tickets/CBS-4646.md]]
 - **Jira:** [CBS-4646](https://jobtarget.atlassian.net/browse/CBS-4646) — Story, Backlog, High, unassigned, label `CBSWk38of2026`, reporter Shiela Mojeno. Verified via Atlassian MCP 2026-09-17.
 - **Grilled:** 2026-09-18 via `/grilling`
 - **Last touched:** 2026-09-18
@@ -138,7 +138,83 @@ Read on 2026-09-17 against `CBS-4643-ofccp-getjobs-param-validation` @ `fcf24ca5
 - OPEN QUESTION: **Does the seeded `coreapi-test-sql` container have `job_distribution_transmit_site_setting`?** It is a restore of a real database so very likely yes, but if not, the new entity fails at query translation and the table must be added to the integration-test schema scripts.
 - OPEN QUESTION: **Which of the five write paths does each of Shiela's nine sites actually take?** Cannot be determined from code alone. Not a blocker on any decision — D5 gates all five — but it is how we confirm the fix landed.
 
+### How to close them
+
 All four are answerable in one session against a working MSSQL connection plus a running container. Do that before Phase 2.
+
+**Attempted 2026-09-18, could not run.** All three `*-64recs-mssql` MCP servers were `CONNECT_TIMEOUT` at 30s — as were `jira`, `gitlab`, `datadog` and all three Postgres servers, while the cloud-routed Atlassian connector worked fine. That split points at the VPN, not the database hosts. **The MCP servers only attempt connection at session startup**, so reconnect the VPN *then* start a new session — retrying inside a running one does nothing.
+
+The [[repo-memory#DataGrip cached DDL offline fallback]] does **not** work here: DataGrip's cached introspection at
+`%LOCALAPPDATA%/JetBrains/DataGrip2024.2/data-source/7d830600/…/entities/entities.dat.values` mentions
+`job_distribution_transmit_site_setting` only as a fragment of a default-constraint name. No column list survives, and that cache dates to 2025. Don't spend time on it again.
+
+Column names below for `p_sites` / `p_sites_features` are from the EF mappings (`PartnerSiteEntity`, `PartnerSiteFeatureEntity`), read on 2026-09-18 — not guessed. The `job_distribution_transmit_site*` names come from the SQL in CBS-4646 and DBA-2636, which is exactly what OQ1 exists to confirm.
+
+**OQ1 — the `value` column type.** The one that can silently invert the whole gate.
+
+```sql
+SELECT c.name AS column_name, t.name AS data_type, c.max_length, c.is_nullable
+FROM [64recs67o].sys.columns c
+JOIN [64recs67o].sys.types t ON t.user_type_id = c.user_type_id
+WHERE c.object_id = OBJECT_ID('[64recs67o].dbo.job_distribution_transmit_site_setting')
+ORDER BY c.column_id;
+```
+
+**OQ2a — what values exist, and on how many sites.**
+
+```sql
+SELECT tss.value, COUNT(DISTINCT ts.site_id) AS site_count
+FROM [64recs67o].dbo.job_distribution_transmit_site ts WITH(NOLOCK)
+JOIN [64recs67o].dbo.job_distribution_transmit_site_setting tss WITH(NOLOCK)
+  ON tss.transmit_site_id = ts.transmit_site_id
+WHERE ts.active = 1 AND tss.active = 1 AND tss.name = 'requires_pending_delete'
+GROUP BY tss.value;
+```
+
+**OQ2b — the risky cross-check: integrated sites *without* the flag.** A large `unflagged` is the result that stops the design — it would mean we quietly cease sending close requests to integrated boards.
+
+```sql
+WITH flagged AS (
+    SELECT DISTINCT ts.site_id
+    FROM [64recs67o].dbo.job_distribution_transmit_site ts WITH(NOLOCK)
+    JOIN [64recs67o].dbo.job_distribution_transmit_site_setting tss WITH(NOLOCK)
+      ON tss.transmit_site_id = ts.transmit_site_id
+    WHERE ts.active = 1 AND tss.active = 1
+      AND tss.name = 'requires_pending_delete' AND tss.value = 1
+),
+cloud AS (
+    SELECT DISTINCT f.site_id
+    FROM [64recs67o].dbo.p_sites_features f WITH(NOLOCK)
+    WHERE f.active = 1 AND f.enabled = 1
+      AND f.feature = 'oneclick_integration_pipeline'
+)
+SELECT
+    (SELECT COUNT(*) FROM cloud)                                             AS cloud_sites,
+    (SELECT COUNT(*) FROM cloud c JOIN flagged fl ON fl.site_id = c.site_id) AS flagged,
+    (SELECT COUNT(*) FROM cloud c LEFT JOIN flagged fl ON fl.site_id = c.site_id
+      WHERE fl.site_id IS NULL)                                              AS unflagged;
+```
+
+**OQ3 — against the container, not prod.** `docker start coreapi-test-sql` first. Non-null means the entity will translate and D9's DB-backed tests can run.
+
+```sql
+SELECT OBJECT_ID('[64recs67o].dbo.job_distribution_transmit_site_setting');
+```
+
+**OQ4 — branch drivers for Shiela's nine sites.** `pipeline + ext_posting + NOT php` = `IsCloud`; `programmatic` and `site_type_id_jt` feed `GetMoveAction`. Between them they place each site on one of the five write paths.
+
+```sql
+SELECT s.site_id, s.site_name, s.site_type_id_jt,
+       MAX(CASE WHEN f.feature = 'oneclick_integration_pipeline'    AND f.enabled = 1 AND f.active = 1 THEN 1 ELSE 0 END) AS pipeline,
+       MAX(CASE WHEN f.feature = 'external_job_posting_integration' AND f.active = 1                   THEN 1 ELSE 0 END) AS ext_posting,
+       MAX(CASE WHEN f.feature = 'oneclick_integration_php'         AND f.enabled = 1 AND f.active = 1 THEN 1 ELSE 0 END) AS php,
+       MAX(CASE WHEN f.feature = 'aa_automated_delete'              AND f.enabled = 1 AND f.active = 1 THEN 1 ELSE 0 END) AS auto_delete,
+       MAX(CASE WHEN f.option1 IN ('full', 'full_account')                                             THEN 1 ELSE 0 END) AS programmatic
+FROM [64recs67o].dbo.p_sites s WITH(NOLOCK)
+LEFT JOIN [64recs67o].dbo.p_sites_features f WITH(NOLOCK) ON f.site_id = s.site_id
+WHERE s.site_id IN (25393, 17466, 5258, 4416, 15012, 20868, 5264, 26325, 23306)
+GROUP BY s.site_id, s.site_name, s.site_type_id_jt;
+```
 
 ---
 
