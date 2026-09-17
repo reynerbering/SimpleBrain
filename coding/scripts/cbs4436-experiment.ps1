@@ -8,7 +8,13 @@ Splits the affected postings into:
 Phase A (default)  : READ ONLY. Resolves spider postings, captures BEFORE state.
 Phase B (-Execute) : PROD WRITE. POSTs RegisterJobs, captures AFTER, reports the split.
 
-The API key is read from $env:CORE_API_KEY. It is never written to disk or logged.
+NOTE 2026-09-18: core-api did not require X-API-KEY on these GETs in prod - the header is
+sent but not enforced. $env:CORE_API_KEY is still honoured if set; set it to anything if
+you just want the script to run.
+
+FIXED 2026-09-18: the spider resolution used count=200&page=1 and always returned HTTP 400.
+The endpoint rejects count > 100 (PostingController.cs:173) and page is 0-based.
+
   $env:CORE_API_KEY = '<your prod key>'
   ./cbs4436-experiment.ps1                # safe, read-only
   ./cbs4436-experiment.ps1 -Execute       # performs the prod write
@@ -40,7 +46,7 @@ Write-Host "`n=== Resolving spider postings ===" -ForegroundColor Cyan
 $spiderIds = @()
 foreach ($jobId in $spiderJobIds) {
     try {
-        $rows = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/v2/job/$jobId/posting?count=200&page=1" -Headers $headers -TimeoutSec 30
+        $rows = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/v2/job/$jobId/posting?count=100&page=0" -Headers $headers -TimeoutSec 30
         $ids  = @($rows | ForEach-Object { $_.id })
         $spiderIds += $ids
         Write-Host ("  job {0,-10} -> {1,3} postings" -f $jobId, $ids.Count)

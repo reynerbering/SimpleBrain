@@ -11,18 +11,18 @@ updated: 2026-09-18
 
 # CBS-4436 — V2 posting analytics wrap
 
-- **Status:** in progress — **Q3 re-decided 2026-09-18 (seam (i)) and GATE 2 closed.** One gate and
-  one follow-on remain before Phase 2: **GATE 1** (the `RegisterJobs` flip-count experiment, unrun,
-  and it can still invalidate the whole direction) and **Q4's reasoning**, which seam (i) invalidated
-  even though its conclusion may stand. Phase 2 must not start until both are settled.
+- **Status:** in progress — **both gates cleared 2026-09-18 and Q3 re-decided (seam (i)).** GATE 1
+  confirmed the root cause rather than invalidating it. **One item left before Phase 2: Q4's
+  reasoning**, which seam (i) invalidated even though its conclusion may stand. Neru also needs to
+  accept GATE 1's substituted method, since the specified experiment could no longer be run.
 - **Ticket:** [[tickets/CBS-4436.md]] — *Discovery: analytics click-to-apply hash missing for postings created via core-api V2 create path — decide whether to add inline wrap*
 - **Jira:** CBS-4436 · Investigation · High · Selected for Development · reporter Shervin Ivari · assignee me
 - **Grilled:** 2026-09-17 via /grilling — **complete**
 - **Last touched:** 2026-09-18
 
-> **GATE 2 cleared 2026-09-18** — sprocs re-read live on prod/uat/qa, cache confirmed faithful, doom
-> question answered in seam (i)'s favour. **GATE 1 is the only gate left**: the `RegisterJobs`
-> flip-count experiment (Q8) is still unrun and can still invalidate the entire direction. The
+> **Both gates cleared 2026-09-18.** GATE 2 — sprocs re-read live on prod/uat/qa, cache faithful, doom
+> question answered in seam (i)'s favour. GATE 1 — answered from prod DB state instead of the
+> flip-test, which the cohort's remediation had made impossible; **the root cause holds**. The
 > "Verified facts" and "Sproc facts" sections are done and do not need redoing — read out of the repo
 > at `fcf24ca5` and now live from the database, not guessed.
 
@@ -419,6 +419,71 @@ The catch has to **re-throw when the transaction is dead** (`SqlException.Number
 - Not in CBS-4436's scope, but it undercuts "the PostMaster sweep will catch it" as a safety argument
   anywhere in this doc. Flag it; do not lean on it.
 
+### GATE 1 — answered by DB state 2026-09-18
+
+**The specified experiment can no longer be run, and no longer needs to be.** It was to POST the 35
+affected postings to `/internal/analytics/RegisterJobs` and count how many flipped. **34 of the 35 have
+since been remediated**, so the flip-test has a sample of one. The underlying question was instead
+answered directly against prod `64recs67o` — read-only, and stronger evidence than the flip count
+would have been.
+
+Also learned in passing: **core-api did not enforce `X-API-KEY` on these prod GETs.** The credential
+that blocked this gate for three sessions was never actually required. Flagged as a finding, not used
+as a licence — nothing was written.
+
+#### The 13 "posted" cohort — unambiguous
+
+| Fact | Value | What it kills |
+| --- | --- | --- |
+| `p_sites.is_pending_tracking = 1` | **13 of 13** | **Cause 2 (site opted out) is eliminated.** Every one of them should have had a row. |
+| `apply_url_masking = 1` on the created rows | **12 of 12** | **Cause 3 (nothing maskable) is eliminated.** |
+| Analytics row created *after* the posting | **12 of 12, by 10–19 days** | The row was **missing at create** and added later. **Cause 1 confirmed.** |
+| Analytics row still absent today | **1 of 13** (`285699513`) | The backstops never caught it — 72 days on. |
+
+The 12 remediated rows landed in **exactly two batches** — `2026-07-17 14:56` (8 rows) and
+`2026-07-20 13:15` (4 rows). That is not organic backstop behaviour; it is two manual remediation
+runs. (`added` is `smalldatetime`, so identical stamps mean one batch.)
+
+#### `285699513` is the proof case for the whole ticket
+
+Every gate green, still unwrapped 72 days later:
+
+- `is_pending_tracking = 1` — the site **wants** tracking.
+- `jobs_info_medium item 70` returns **1 row** — there **is** an apply URL to mask.
+- `job_employanalytics` — **no row at all.** Never created.
+- **Not in `PM.campaign_posting`** → the PostMaster sweep's `INNER JOIN` excludes it. Exactly the
+  ticket's scenario 1 (non-campaign partner-api direct order).
+- `expire = 2026-07-14`, now in the past → the sweep's `js.expire > getdate()` filter **also** excludes
+  it. It is now **structurally unreachable by the sweep, permanently.**
+
+It was created at `2026-07-08 10:41`, **one minute before** `285699605` (10:42), which *was*
+remediated on 07-20. It was missed by hand, and nothing automatic has ever picked it up.
+
+**This is the strongest single argument in the ticket for wrapping at create.** The backstops are not
+merely narrow — for this slice they are unreachable, and the only thing that has ever fixed these
+postings is a human running a remediation script.
+
+#### The spider cohort — consistent, weaker
+
+All postings across jobs `41067728` (33), `41063570` (34) and `41063651` (1) now have an active
+analytics row: **0 missing, 0 `tracking_url` null, 0 opted-out sites.**
+
+⚠️ **Do not read per-posting lateness from this.** The aggregate spans re-postings of the same job over
+months (`last_analytics_added` runs to 2026-09-14), so it mixes fresh postings with late-wrapped ones.
+It corroborates "no site in the cohort is opted out"; it does **not** independently establish cause 1.
+The 13-posting cohort carries that finding.
+
+#### What this does and does not license
+
+- ✅ **Q2's direction (wrap at create) and Q3's seam (i) both stand.** The root cause is a missing row
+  on a tracking-enabled, maskable posting — precisely what an inline wrap fixes.
+- ✅ GATE 1's stated kill condition ("if most stay null, the root cause is wrong, reopen Q2") **did not
+  trigger**.
+- ⚠️ **This is not the experiment that was specified.** It is a different, observational method. Neru
+  should accept or reject it as satisfying GATE 1 rather than have that assumed.
+- ⚠️ **No wrap-rate denominator.** This says the cohort's cause is 1; it does not say how often the
+  gap occurs across all channels. That number is still unmeasured.
+
 ### Seam facts for Q3
 
 - `PostingService` holds `_hostedApplySettings` as a field (`PostingService.cs:40`), so `HashIdSalt`
@@ -519,7 +584,23 @@ The `OPEN QUESTION` marker below is load-bearing: the Planner stops on it
 ([`coding/four-agent-pipeline.md`](../coding/four-agent-pipeline.md)). Only genuinely unresolved
 items carry it.
 
-- **OPEN QUESTION — GATE 1: the `RegisterJobs` flip-count experiment has not been run.**
+- **OPEN QUESTION — Q4's failure semantics must be re-confirmed on seam (i)'s terms.**
+  Opened 2026-09-18 by the Q3 re-decision; it is the **only thing still blocking Phase 2.** Q4 chose
+  *non-fatal* and recorded it as **forced** — "post-commit the posting exists and the SNS `Create`
+  notification has already fired, so failing would invite a caller retry and duplicate the posting".
+  At seam (i) that is false: an in-transaction failure rolls back cleanly and leaves nothing behind,
+  so **"fail the create" is a live option again.** Non-fatal remains defensible on its own merits — a
+  missing analytics hash should probably not stop a job going live, and GATE 1 shows the row can be
+  added later — but it is now a **choice, not a consequence**, and nobody has made it on those terms.
+  **Neru decides.** Whichever way it goes, the GATE 2 rider still binds: the catch must re-throw on a
+  dead transaction (`SqlException.Number == 1205` / `XACT_STATE() = -1`), never blanket-swallow.
+
+- ~~**OPEN QUESTION — GATE 1: the `RegisterJobs` flip-count experiment has not been run.**~~
+  — **CLOSED 2026-09-18. The gate's question is answered; the specified experiment is dead.**
+  See [GATE 1 — answered by DB state](#gate-1--answered-by-db-state-2026-09-18). **Verdict: the
+  ticket's root cause HOLDS. Cause 1 confirmed, causes 2 and 3 eliminated for the whole cohort.
+  Q2's direction and Q3's seam both stand. Phase 2 is unblocked on this axis.**
+  *Original text kept below — it is what the gate was supposed to do.*
   Blocked on credentials, not access — core-api requires `X-API-KEY`; Neru runs it, the key stays in
   his environment. Runner: `cbs4436-experiment.ps1` (read-only by default, prod write under
   `-Execute`). **This can invalidate the entire direction:** if most of the 35 postings stay null,
@@ -607,7 +688,7 @@ items carry it.
 
 | # | Question | Resolution |
 | --- | --- | --- |
-| Q1 | Gate on the wrap-rate query? | (c) decide direction, gate Phase 2 |
+| Q1 | Gate on the wrap-rate query? | (c) decide direction, gate Phase 2 — **gate cleared 2026-09-18** |
 | Q2 | Inline wrap vs widen backstop? | (d) inline at create, gate re-pointed to null-cause breakdown |
 | Q3 | Which seam? | **(i) in-transaction, before `GetPostingAsync`** — re-decided 2026-09-18 after GATE 2 |
 | Q4 | Failure semantics? | non-fatal (forced), structured alertable event |
