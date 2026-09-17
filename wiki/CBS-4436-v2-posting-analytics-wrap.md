@@ -11,19 +11,20 @@ updated: 2026-09-18
 
 # CBS-4436 — V2 posting analytics wrap
 
-- **Status:** in progress — ⚠️ **Phase 1 was complete, then Q3 REOPENED on 2026-09-17 (session 4).**
-  Q1–Q2 and Q4–Q9 plus testing and process stand. **Q3 is open again** — the seam decision is
-  unsettled, and Q4/Q5 lean on it. Phase 2 must not start until Q3 is re-decided.
+- **Status:** in progress — **Q3 re-decided 2026-09-18 (seam (i)) and GATE 2 closed.** One gate and
+  one follow-on remain before Phase 2: **GATE 1** (the `RegisterJobs` flip-count experiment, unrun,
+  and it can still invalidate the whole direction) and **Q4's reasoning**, which seam (i) invalidated
+  even though its conclusion may stand. Phase 2 must not start until both are settled.
 - **Ticket:** [[tickets/CBS-4436.md]] — *Discovery: analytics click-to-apply hash missing for postings created via core-api V2 create path — decide whether to add inline wrap*
 - **Jira:** CBS-4436 · Investigation · High · Selected for Development · reporter Shervin Ivari · assignee me
 - **Grilled:** 2026-09-17 via /grilling — **complete**
-- **Last touched:** 2026-09-17
+- **Last touched:** 2026-09-18
 
-> **Phase 1 complete (2026-09-17).** Every question below is decided — see Decisions. Two gates must
-> clear before Phase 2 ships: the `RegisterJobs` flip-count experiment (Q8) and a live re-read of the
-> sproc DDL (the copy below is a 2026-07-08 cache snapshot). The "Verified facts" and "Sproc facts"
-> sections are done and do not need redoing — read out of the repo at `fcf24ca5` and the
-> DataGrip prod cache, not guessed.
+> **GATE 2 cleared 2026-09-18** — sprocs re-read live on prod/uat/qa, cache confirmed faithful, doom
+> question answered in seam (i)'s favour. **GATE 1 is the only gate left**: the `RegisterJobs`
+> flip-count experiment (Q8) is still unrun and can still invalidate the entire direction. The
+> "Verified facts" and "Sproc facts" sections are done and do not need redoing — read out of the repo
+> at `fcf24ca5` and now live from the database, not guessed.
 
 ## Problem
 
@@ -129,10 +130,43 @@ Phase 1 still in progress — Q3 onward are unanswered. Do not let a Planner rea
   Reasoning: the sproc facts below show three distinct causes of a null `clickToApplyUrl`, and the
   ticket names only one. The wrap rate can flip *where* the fix goes; the null-cause breakdown can
   flip *whether this is the right fix at all*. Same blocked server, strictly more decisive.
-- **Q3 — ⚠️ REOPENED 2026-09-17 (session 4). This entry is NO LONGER a settled decision** — see
-  [Open questions](#open-questions) for the evidence that reopened it, in particular that seam (ii)
-  leaves the create response and the SNS `Create` payload carrying `clickToApplyUrl: null`.
-  The original text is preserved below as the record of what was decided on 2026-09-17 and why.
+- **Q3 — RE-DECIDED 2026-09-18 by Neru, after GATE 2: (i) in-transaction, placed *before*
+  `GetPostingAsync`.** Reverses the 2026-09-17 decision, which is struck through below and kept as the
+  record of what was thought at the time.
+
+  Why it flipped — three things changed, none of them opinion:
+
+  1. **GATE 2 retired the doom risk.** No `XACT_ABORT`, no nested transaction, no `TRY…CATCH`, no
+     `RAISERROR`, no `INSERT … EXEC`, no trigger on `job_employanalytics`. Ordinary errors stay
+     statement-level and committable; only deadlock 1205 dooms the transaction, and it **already does
+     so today** through the existing statements, with the execution strategy already replaying it.
+     See [GATE 2 — live re-read](#gate-2--live-re-read-2026-09-18).
+  2. **The self-deadlock objection was against a seam nobody is proposing.** The struck entry below
+     argues against a raw `SqlCommand` **on its own connection**. `Database.ExecuteSqlRawAsync`
+     enlists in the *same* transaction, so the `select js.site_id from jobs_sites` read sees the
+     transaction's own writes. No self-block, no NULL `@site_id`, no silent no-op.
+  3. **Seam (ii) cannot fix the reported symptom without extra scope.** The hash is read inside the
+     transaction at `PostingCreateCommands.cs:197-198`, so a post-commit wrap leaves
+     `clickToApplyUrl` **and** `hostedApplyUrl` null on the create response *and* in the SNS `Create`
+     payload — the exact thing CBS-4436 reports. Seam (i) makes both correct with no extra code.
+
+  **Costs accepted, on the record:**
+
+  - Larger lock footprint on a transaction that is already deadlock-prone. Judged second-order
+    against the multi-table graph read it already performs per posting *and per bundle child*.
+  - `Database.ExecuteSqlRawAsync` has **zero precedent in this repo** — first of its kind, not a
+    tidy-up. The Reviewer should treat it as new pattern, not boilerplate.
+  - ⚠️ **Planner rider:** the non-fatal wrap must **re-throw on a dead transaction**
+    (`SqlException.Number == 1205` / `XACT_STATE() = -1`), not blanket-swallow. Swallowing and falling
+    through to `CommitAsync` turns a retryable deadlock into a failed create.
+
+  ⚠️ **Q4's recorded *reasoning* is now invalid, though its conclusion may still be right.** Q4 chose
+  non-fatal and called it **forced** — "post-commit the posting exists and the SNS notification has
+  already fired, so failing would invite a duplicate-posting retry". At seam (i) that is no longer
+  true: an in-transaction failure rolls back cleanly and leaves nothing behind, so "fail the create"
+  is a live option again. Non-fatal is still defensible on its own merits (a missing analytics hash
+  should probably not block a job going live) — but it is now a **choice, not a consequence**, and
+  nobody has made it on those terms. **Not re-decided here. Neru's call.**
 - ~~**Q3 — decided 2026-09-17: (ii) post-commit in `PostingService.CreatePostingAsync`.** Not (i).~~
   Seam (i) is not merely risky — `usp_CreateWrappedUrl` reads
   `select js.site_id from jobs_sites js where js.id=@posting_id` with **no `NOLOCK`**, so a raw
@@ -497,7 +531,11 @@ items carry it.
   except deadlock, which already dooms the transaction anyway.** Full findings and the catch-rethrow
   rider in [GATE 2 — live re-read](#gate-2--live-re-read-2026-09-18). **Q3 is now unblocked.**
 
-- **OPEN QUESTION — Q3 IS REOPENED. The recorded reasoning does not survive review.**
+- ~~**OPEN QUESTION — Q3 IS REOPENED. The recorded reasoning does not survive review.**~~
+  — **CLOSED 2026-09-18. Re-decided: seam (i), in-transaction, before `GetPostingAsync`.** Reasoning
+  in [Decisions](#decisions). The review evidence that reopened it is kept below, unedited, because it
+  is what drove the reversal. **A follow-on opened in its place: Q4's reasoning no longer holds — see
+  the Q4 note in Decisions.**
   **Deferred by Neru 2026-09-18 until GATE 2 landed. GATE 2 HAS NOW LANDED (same day)** — the
   doom-transaction question came back **in seam (i)'s favour**: no new doom class, deadlock excepted
   and already handled by the execution strategy. The last technical objection to seam (i) is gone, and
@@ -571,7 +609,7 @@ items carry it.
 | --- | --- | --- |
 | Q1 | Gate on the wrap-rate query? | (c) decide direction, gate Phase 2 |
 | Q2 | Inline wrap vs widen backstop? | (d) inline at create, gate re-pointed to null-cause breakdown |
-| Q3 | Which seam? | (ii) post-commit in `PostingService` — *but see the open re-look above* |
+| Q3 | Which seam? | **(i) in-transaction, before `GetPostingAsync`** — re-decided 2026-09-18 after GATE 2 |
 | Q4 | Failure semantics? | non-fatal (forced), structured alertable event |
 | Q5 | Media-package children / where does the logic live? | (a) move into DataAccess, V1 delegates |
 | Q6 | Per-child sproc round-trip? | (a) accept |
