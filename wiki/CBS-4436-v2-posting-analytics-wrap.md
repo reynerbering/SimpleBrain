@@ -851,13 +851,55 @@ items carry it.
 > After the pipeline runs, append a dated revision below — never rewrite the history above it.
 > One new section per post-implementation pass. Delete this blockquote and the stub when filling the first one in.
 
-## YYYY-MM-DD — post-implementation revision
+## 2026-09-18 — revision: Planner stage
 
 **Changed**
-- <decision> revised to <new> — because <what the build revealed>.
+
+- ⚠️ **Q5's supporting sentence is stale — the decision itself stands.** Q5 says "the doc's earlier
+  idea of wrapping children as they are written required seam (i) and is dead." That was written on
+  09-17 while Q3 was seam (ii). **Q3 is now seam (i), so the sentence inverts: wrapping children as
+  they are written is exactly what happens.** Q5's *decision* — (a), a DataAccess service that V1
+  delegates to, wrapping parent **plus** media-package children — is met in full and is unchanged.
+  - **This is the third piece of downstream reasoning the Q3 re-decision invalidated** (after Q4's
+    "forced" non-fatal, and the cause-3 no-op claim in the GATE 2 write-up). The pattern is worth
+    naming: **reversing Q3 silently voided arguments elsewhere in the doc that were premised on it.**
+    Each was caught by re-reading rather than by any check. Worth a sweep before the next reversal.
+- The wrap lands in `WriteSinglePostingCore`, between `SaveChangesAsync` and `GetPostingAsync`. Both
+  boundaries are load-bearing: before the flush the `jobs_sites` row is not visible to the sproc, so
+  `@site_id` is NULL and it silently no-ops; after `GetPostingAsync` the response and SNS payload are
+  already null. A once-per-bundle wrap is impossible — at parent-wrap time the children do not exist.
 
 **Reviewer flagged**
--
+
+Three judgement calls the Planner recorded for the Reviewer; none blocks the run:
+
+- **J1** — `img_url` stays hardcoded to `https://www.click2apply.net/`, matching V1 and the sproc in
+  all three environments. Config-sourcing it would change V1 behaviour in UAT/QA. The API response is
+  unaffected: `SetApplyUrls` composes that from config + hash, as GATE 1 observed live.
+- **J2** — wrap runs once per posting, not once per bundle. See the Q5 note above.
+- **J3** — the three V1 call sites are left untouched; delegation happens inside
+  `CreateWrappedUrlsForPostingAsync`, whose signature does not change. Q5's "touches three V1 call
+  sites" was a cost estimate, not a requirement; this is a strictly smaller diff.
+
+**Also surfaced by the Planner** (verified independently before recording):
+
+- `CoreAPI.DataAccess.Services.IAnalyticsService` **already exists** as an HTTP wrapper over the
+  external analytics API. The new service must be `IAnalyticsWrapService` to avoid a collision.
+- **The pinned suite is a free canary.** `CoreAPI.Test` builds its schema with `EnsureCreated()`
+  (`CoreAPI.TestFramework/CoreApiTestFramework.cs:183`) — **tables only, no stored procedures**, and
+  nothing in `CoreAPI.Test` deploys any. So `usp_CreateWrappedUrl` does not exist there, every create
+  raises SQL error 2812 (statement-level, committable), and it **must** be swallowed. A blanket-fail
+  or mis-scoped catch turns the existing posting tests red immediately. **A result below 367/367 means
+  the wrap is wrong, not the test.**
+- The doomed-transaction rethrow is **not reachable** in that harness, and
+  `Microsoft.Data.SqlClient.SqlException` has no public constructor, so the 1205 / severity branches
+  cannot be unit-tested either. The classification lives in one named method and the untestable
+  branches are to be **reported as a gap, not faked**.
+- `jf.value1` holds the parent **posting** id despite the parameter being named `parentSiteId`
+  (`PostingCreateCommands.cs:246`, stored at 580-582). Matches V1's UNION. **Do not "fix" it.**
+- Only two `jobs_sites` writers exist — `PostingCreateCommands` and `OrderCommands` (Q7, out of
+  scope). `PostingPatchCommands` creates no posting rows. No fourth writer was missed.
 
 **New open questions**
--
+
+- None.
