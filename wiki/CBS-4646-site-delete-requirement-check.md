@@ -238,15 +238,34 @@ GROUP BY s.site_id, s.site_name, s.site_type_id_jt;
 ---
 
 > After the pipeline runs, append a dated revision below — never rewrite the history above it.
-> One new section per post-implementation pass. Delete this blockquote and the stub when filling the first one in.
+> One new section per post-implementation pass.
 
-## YYYY-MM-DD — post-implementation revision
+## 2026-09-18 — revision (pre-implementation)
+
+Not a pipeline pass. D12's precondition changed while working CBS-4643, so it is recorded here
+rather than left to surprise Phase 2.
 
 **Changed**
-- <decision> revised to <new> — because <what the build revealed>.
 
-**Reviewer flagged**
--
+- **D12's manual `ALTER` is superseded.** The decision itself stands — a green baseline is still
+  required before `/ship`, for the reason D12 gives. What changed is how you get one: the drift is
+  now recorded in `CoreAPI.Test/Scripts/000_schema_drift.sql` and applied before every run by
+  `LegacyDatabaseSchemaFixture`, so a fresh container self-heals instead of needing the hand-run
+  statement. Landed on the CBS-4643 branch (`55b6aa90`) and **not yet merged** — until it reaches
+  `develop`, run the `ALTER` by hand as D12 originally said.
+- **The baseline is now measured, not assumed.** `CoreAPI.Test` is **383 / 383** and
+  `tests/CoreAPI.Tests.Integration` is **950 passed / 3 skipped**, both on a branch off current
+  `develop`. D12 predicted 383/383 from a red run; that is now confirmed rather than expected.
+- **One of the 85 failures was never container drift.** `PostingQueries_ChildPostingFilter_Tests`
+  broke on the .NET 10 upgrade itself — EF Core 10 renamed a generated query parameter. Fixed
+  separately (`81a54c2a`). D12's "57 existing *Job creation failed.* results" framing is right about
+  the drift but was one test short of the whole red count.
 
 **New open questions**
--
+
+- **OQ3 now has a place to land.** If the seeded container turns out to be missing
+  `job_distribution_transmit_site_setting`, the answer is an entry in `000_schema_drift.sql` — the
+  same mechanism, additive and idempotent — not a hand-run statement and not a change to the
+  integration-test schema scripts, which belong to the *other* suite. Note the two suites are
+  separate: `tests/CoreAPI.Tests.Integration` builds its own schema from `Scripts/`, so OQ3 only
+  bites the legacy project.

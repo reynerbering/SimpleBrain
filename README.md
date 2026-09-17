@@ -97,7 +97,9 @@ Verified by inspection on 2026-09-15. This is the single biggest constraint on P
 
 **Consequence:** for those repos the first pipeline run cannot start at the Tester stage — there is no suite to run. Write the first real test by hand before letting `/ship` near them.
 
-Repos with a genuine suite today: `CoreAPI` (NUnit), the three CBS TypeScript Lambdas (Jest), the four Sails apps (Mocha), both Stencil apps (Jest), the Laravel pair (PHPUnit), `recruit-site-job-notification-lambda` (xUnit), and `jobapplicationapi` (Jest).
+Repos with a genuine suite today: `CoreAPI` (NUnit, **two projects** — see the pinned commands in [protocols/coding-standards.md](protocols/coding-standards.md)), the three CBS TypeScript Lambdas (Jest), the four Sails apps (Mocha), both Stencil apps (Jest), the Laravel pair (PHPUnit), `recruit-site-job-notification-lambda` (xUnit), and `jobapplicationapi` (Jest).
+
+⚠️ **A suite existing is not the same as a suite being runnable.** `CoreAPI`'s legacy project needs a seeded local container whose schema is not managed by the repo, so it can be red for reasons that have nothing to do with the code. Read its notes in [protocols/coding-standards.md](protocols/coding-standards.md) before reading a red run there as a real failure.
 
 ### Unassigned
 

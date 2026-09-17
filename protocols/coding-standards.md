@@ -31,13 +31,19 @@ Conventional starting points, **not verified against any specific repo**.
 
 ## Per-repo pinned commands
 
+⚠️ **`CoreAPI` has two test projects and they are not interchangeable.** `CoreAPI.Test` is the
+legacy NUnit suite against a hand-seeded container; `tests/CoreAPI.Tests.Integration` builds its own
+schema from checked-in scripts and is the one to trust and to extend. `dotnet test` with no project
+runs both. Which `dotnet` is on PATH matters — see [the CoreAPI repo note](../wiki/repos/CBS-CoreAPI.md).
+
 **Pin the test command per repo before the first pipeline run there.** The Tester stage executes a real suite; without a known runner it guesses, and a guessed green is worse than no test at all. Add a row the first time the pipeline touches a repo — a repo with no row here has not been verified.
 
 This table records only commands **verified by actually running them**.
 
 | Repo | Test command | Build command | Confirmed |
 | --- | --- | --- | --- |
-| `CoreAPI` | `dotnet test CoreAPI.Test/CoreAPI.Test.csproj` — **needs the local MSSQL container up AND schema-current**, see notes | `dotnet build CoreAPI.Test/CoreAPI.Test.csproj` | ⚠️ 2026-09-18 — **84 failed / 299 passed / 383 total**, 1m44s. Build clean. Red for environment drift, not code — see below |
+| `CoreAPI` (legacy suite) | `dotnet test CoreAPI.Test/CoreAPI.Test.csproj` — **needs the local MSSQL container up**, see notes | `dotnet build CoreAPI.sln` | ✅ 2026-09-18 — **383 / 383**, 1m51s. Build clean (0 errors, 663 warnings) |
+| `CoreAPI` (integration suite) | `dotnet test tests/CoreAPI.Tests.Integration/CoreAPI.Tests.Integration.csproj` — **self-contained**, spins its own Testcontainers SQL Server + Valkey. Only needs Docker | `dotnet build CoreAPI.sln` | ✅ 2026-09-18 — **950 passed / 3 skipped / 953**, 2m09s |
 
 ⚠️ **`CoreAPI` moved to .NET 10 on 2026-09-10** — commit `ee28457e`, "CBS-4668: Upgrade Core API
 to .NET 10". EF Core went 7.0.20 → 10.0.12 and the repo adopted central package management
@@ -46,38 +52,49 @@ to .NET 10". EF Core went 7.0.20 → 10.0.12 and the repo adopted central packag
 - **A .NET 10 SDK is required.** With only a 9.x SDK every project fails restore with
   `NETSDK1045: The current .NET SDK does not support targeting .NET 10.0` — the repo does not build
   at all. There is no `global.json` pinning a version.
-- **EF Core 10 renamed generated query parameters** — `@__jobId_Value_0` became `@jobId_Value`. Any
-  test asserting on generated SQL by parameter name breaks on the upgrade. Assert on the emitted
-  predicate instead.
+- **EF Core 10 renamed generated query parameters** — EF9's `__jobId_Value` became `@jobId_Value`.
+  Any test asserting on generated SQL **by parameter name** breaks on the upgrade. Assert on the
+  emitted predicate instead (`[j].[job_id] =`), which is what such a test is really guarding.
+  This bit exactly one test — `PostingQueries_ChildPostingFilter_Tests` — fixed on the CBS-4643
+  branch (`81a54c2a`, **not yet merged**). It was the only generated-SQL name assertion in either
+  test project, so nothing else is exposed.
 - The old 367/367 figure was taken on a **pre-upgrade checkout** (`fcf24ca5` and friends do not
   contain `ee28457e`), which is why it read as .NET 6 despite being dated after the merge. Test
   count is now **383**, so 367 was never a like-for-like baseline. Do not compare the two.
-- The upgrade itself is **clean**: 0 build errors, and none of the 84 failures are net10/EF10
-  related. Verified absent: EF parameter-name breaks, nullable/ImplicitUsings errors, obsolete-API
-  escalations.
+- The upgrade itself is **clean**: 0 build errors, and **exactly one** of the 85 failures is
+  net10/EF10 related — the parameter-name assertion above. The other 84 are container drift.
+  Verified absent: nullable/ImplicitUsings errors, obsolete-API escalations.
+  ⚠️ The earlier count of "84 failed / 299 passed, none net10-related" was one test short;
+  re-measured on the rebased branch it is **85 / 298**. Do not reuse the old split.
 
-⚠️ **The seeded container drifts from `develop` and it looks like a code failure.** As of
-2026-09-18 `coreapi-test-sql` is missing **`jobs_info_long.site_id`**, mapped by
-`JobInfoLongEntity.cs` since commit `6e060d21` (CBS-4590, 2026-09-01). Schema is managed outside
-the repo, so an entity change can land with no migration and the container silently falls behind.
+⚠️ **The seeded container drifts from `develop` and it reads as a code failure.** `CoreAPI.Test`'s
+schema is managed outside the repo, so an entity change can land with no migration and the container
+silently falls behind. The failures never name the cause: `CoreApiClient` swallows `SqlException`
+into `Either.Neither`, so **one missing column produced 84 of 383 failures** across fixtures with
+nothing to do with it — `"Job creation failed."` (57×), `Expected: True / But was: False` (19×),
+`NullReferenceException` (5×).
 
-- **One missing column caused 84 of 383 failures** — every fixture that seeds a job via
-  `POST /api/v2/division/{id}/user/{id}/job`. It surfaces as `"Job creation failed."` (57×),
-  `Expected: True / But was: False` (22×), and `NullReferenceException` (5×), never as the real
-  error: the client swallows exceptions into `Either.Neither`, hiding
-  `SqlException: Invalid column name 'site_id'`.
-- **Sibling tables are the tell** — `jobs_info_short` and `jobs_info_medium` both have
-  `site_id int NULL`; only `jobs_info_long` lacks it.
-- Fix is `ALTER TABLE [64recs67o].dbo.jobs_info_long ADD site_id INT NULL;` — type and nullability
-  confirmed against both siblings and the `int? SiteId` property, not guessed.
+**This is now handled in the repo, not here.** `CoreAPI.Test/Scripts/000_schema_drift.sql` records
+the deltas and `LegacyDatabaseSchemaFixture` applies them once per run, so a fresh container
+self-heals. How to add an entry is `CoreAPI.Test/README.md` — **the repo wins, do not restate it
+here.** Landed on the CBS-4643 branch (`55b6aa90`), **not yet merged**; until it is, a fresh
+container still needs the delta applied by hand.
+
+What stays mine:
+
 - **Before blaming code for a mass failure here, diff the EF model against the container schema.**
-  A full sweep on 2026-09-18 found exactly one delta out of 705 mapped columns, so drift is narrow
-  but real.
+  A full sweep on 2026-09-18 found exactly one delta out of 705 mapped columns — drift is narrow but
+  real, and it is the first thing to rule out, not the last.
+- **Sibling tables are the tell.** The known delta was `jobs_info_long.site_id` (CBS-4590,
+  `6e060d21`); `jobs_info_short` and `jobs_info_medium` already carried `site_id int NULL`. Take a
+  column's type and nullability from its siblings and the mapped property, never from a guess.
 
 ⚠️ **`CoreAPI` is only green with a local SQL Server on `localhost:1433`.** Without it the same
 command returns **192 failed / 175 passed** — every failure an identical
 `OneTimeSetUp: SqlException: A network-related or instance-specific error occurred`, not one real
-assertion. 192 of the 367 tests spin a `WebApplicationFactory` against a real DB (Respawn).
+assertion. 192 of the then-367 tests spin a `WebApplicationFactory` against a real DB (Respawn) —
+that count predates the .NET 10 upgrade and the suite is now 383; the no-container split has not
+been re-measured since.
 Setup is the repo's own — `CoreAPI.Test/README.md` and the repo `CLAUDE.md`; **the repo wins, do not
 restate it here**. Two gotchas worth knowing before blaming the code:
 
