@@ -8,12 +8,12 @@ repos:
   - hosted-apply
   - cloud-lookup-api
 grilled: 2026-09-16
-updated: 2026-09-18
+updated: 2026-09-19
 ---
 
 # AS-8535 — apply-flow
 
-- **Status:** in progress — Phase 2 started, walking skeleton built (AS-9252)
+- **Status:** building — Phase 2 started, walking skeleton built (AS-9252)
 - **Ticket:** [[AS-8535]] — *Job Application Re-Architecture - Phase 1*
 - **Grilled:** 2026-09-16 via /grill-me
 - **Last touched:** 2026-09-18

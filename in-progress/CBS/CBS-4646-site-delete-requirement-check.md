@@ -6,12 +6,12 @@ status: grilling
 repos:
   - CoreAPI
 grilled: 2026-09-18
-updated: 2026-09-18
+updated: 2026-09-19
 ---
 
 # CBS-4646 — Site delete requirement and product duration check on stop
 
-- **Status:** in progress — **D2 and D8 are reopened.** Prod verification on 2026-09-18 tripped D8's own gate: the `requires_pending_delete` setting is far too sparse for "absent = not required" to be safe. D1, D3–D7 and D9–D12 stand. Do not start Phase 2. See [the prod-verification revision](#2026-09-18--revision-prod-verification).
+- **Status:** grilling — **D2 and D8 are reopened.** Prod verification on 2026-09-18 tripped D8's own gate: the `requires_pending_delete` setting is far too sparse for "absent = not required" to be safe. D1, D3–D7 and D9–D12 stand. Do not start Phase 2. See [the prod-verification revision](#2026-09-18--revision-prod-verification).
 - **Ticket:** [[CBS-4646]]
 - **Jira:** [CBS-4646](https://jobtarget.atlassian.net/browse/CBS-4646) — Story, Backlog, High, unassigned, label `CBSWk38of2026`, reporter Shiela Mojeno. Verified via Atlassian MCP 2026-09-17.
 - **Grilled:** 2026-09-18 via `/grilling`
