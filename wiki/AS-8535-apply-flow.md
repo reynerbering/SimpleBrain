@@ -2,21 +2,21 @@
 type: design-doc
 ticket: AS-8535
 team: AS
-status: decided
+status: in progress
 repos:
   - clickapply
   - hosted-apply
   - cloud-lookup-api
 grilled: 2026-09-16
-updated: 2026-09-16
+updated: 2026-09-18
 ---
 
 # AS-8535 — apply-flow
 
-- **Status:** decided
+- **Status:** in progress — Phase 2 started, walking skeleton built (AS-9252)
 - **Ticket:** [[tickets/AS-8535.md]] — *Job Application Re-Architecture - Phase 1*
 - **Grilled:** 2026-09-16 via /grill-me
-- **Last touched:** 2026-09-16
+- **Last touched:** 2026-09-18
 
 > ⚠️ **This doc supersedes the AS-8535 epic body.** The epic describes an AWS Step Functions
 > re-architecture driven by fraud reduction, integrating a Business Rules Engine, Delivery Rules
@@ -332,17 +332,78 @@ Audited against `clickapply @ develop` (c2fc5a98). ✅ = produces an intentional
   (`app:{board}:{postingId}:{email}`, 24h); its semantics were never pinned down.
 
 ---
+## 2026-09-18 — post-implementation revision (AS-9252, walking skeleton)
 
-> After the pipeline runs, append a dated revision below — never rewrite the history above it.
-> One new section per post-implementation pass. Delete this blockquote and the stub when filling the first one in.
-
-## YYYY-MM-DD — post-implementation revision
+Phase 2 started. The skeleton is built, on branch `feat/AS-9252-walking-skeleton` in a new local repo
+at `C:\JT Repositories\apply-flow` (commit `6d4c23e`, 51 files). No remote yet.
 
 **Changed**
-- <decision> revised to <new> — because <what the build revealed>.
 
-**Reviewer flagged**
--
+- **The DI gate is answered, and the fallback is not needed.** `[DurableExecution]` composes with
+  Lambda Annotations DI — but **only through the constructor**. `[FromServices]` method parameters are
+  rejected outright: `AWSLambda0142 — must have the signature (TInput, IDurableContext)`. Exactly two
+  parameters, and no `ILambdaContext` either. So the class-library model with a hand-built container is
+  **off the table**, and AS-9253 / AS-9254 keep their planned shape.
+- **`Amazon.Lambda.Annotations` must be 2.x.** `DurableExecutionAttribute` does not exist in 1.x. The
+  version cached on this machine was 1.7.0, which has no durable support at all — the design said
+  "Lambda Annotations model" without a version, and 1.x would have looked like the model simply not
+  working. Pinned to 2.4.0.
+- **`[DurableExecution]`'s constructor argument is `ExecutionTimeout` in seconds**, with
+  `RetentionPeriodInDays` as a property. The per-layer deadlines decided in Phase 1 are therefore
+  expressed in code, not only in infra: 60 / 300 / 300 / 86400, retention 90 on all four. Verified
+  against the generated `serverless.template` for each function.
+- **`ANNOTATIONS_HANDLER` is a required environment variable**, and the Lambda handler is the bare
+  assembly name. Neither is guessable — both were read off the generator's emitted template. Terraform
+  sets them; getting either wrong yields a function that deploys and never dispatches.
+- **The generated `serverless.template` is committed on purpose.** The repo deploys with Terraform, not
+  SAM, so the template is dead weight as infra — but it is the only mechanical cross-check that a
+  changed `[LambdaFunction]` attribute has diverged from `infra/lambda.tf`.
+- **Verdicts are keyed on a known-board list, not on a non-empty check.** First cut checked only that
+  the board was non-blank, which cannot fail without also breaking the archive key — and Archive runs
+  *before* any verdict by decision, so the check was unreachable in practice. Replaced with a
+  known-board set (configurable, defaulting to the eleven in-scope boards plus `jobtarget`). CareerBuilder
+  is absent by design, which gives the "would have rejected" path a real case to exercise.
+  ⚠️ **The board slugs in `KnownBoards.InScope` are provisional** — the design doc names the boards in
+  prose only. Canonical on-the-wire slugs get pinned by AS-9254; the list is overridable by
+  configuration so the guess is not load-bearing.
+
+**Confirmed, not changed**
+
+- **Terraform provider floor.** The design said `~> 6.25`; the devops catalog is on `>= 6.28, < 7.0`,
+  which is compatible and stricter. Using the catalog's.
+- **`publish = true` + alias, and IAM `Resource = function:<name>:*`** are both in `infra/`, as decided.
+- **Four function projects, shared pure core, no operation touching `IDurableContext`.** Holds.
+
+**What is not done**
+
+- **`infra/` has never been validated.** Terraform is not installed on this machine, so nothing has been
+  through `init`, `validate`, `fmt` or `plan`. It is written, not proven.
+- **The cloud test has never run.** `CloudDurableTestRunner` is wired and reports *skipped* (never
+  passed) unless `APPLY_FLOW_VALIDATE_FUNCTION` is set. apply-flow has not been deployed, so AS-9252's
+  "Done when" is **not** met yet.
+- **CI builds and tests but does not deploy** — see the new open question below.
+- **OTel is off.** The catalog defaults it on, but its pinned ADOT ARNs are the Python and Node distros.
+  The .NET layer ARN was not guessed.
 
 **New open questions**
--
+
+- OPEN QUESTION: **There is no `terraform-dotnet` CI/CD component, and no .NET leaf in the devops
+  catalog.** `jobtarget/devops/templates/lambda` is the live standard — components under
+  `templates/<name>/`, leaves under `catalog/<iac>/<runtime>/<pattern>/` — but the only stable leaf is
+  `terraform/python/sns-sqs-lambda` and the only component is `terraform-python`.
+  `catalog/terraform/dotnet/` is an empty `.gitkeep` and every .NET cell in the matrix is 🟡 planned.
+  apply-flow's conventions were hand-ported, which means the env/tag deployment model, OIDC role
+  assumption and `TF_HTTP_*` state wiring the component owns are **not** wired. Either devops adds a
+  `terraform-dotnet` component, or apply-flow forks the standard on its first .NET consumer.
+- OPEN QUESTION: **Is `owner = "apply-systems"` an accepted tag value?** The catalog warns that the JT
+  compliance scanner rejects placeholder `product`/`owner` values. `product = "applysystems"` is listed
+  as a valid slug in the catalog; `owner` was taken from the `team = "apply-systems"` tag the existing
+  AS Lambda repos set, and has **not** been checked against the scanner's allowed list.
+- OPEN QUESTION: **Does apply-flow get a row in the README repo inventory, and a GitLab project?**
+  Still no row (carried over from Phase 1), and now also no remote — the repo is local-only by decision.
+  Expected namespace by convention is `jobtarget/apps/apply-systems/apply-flow`, not verified.
+
+**Reviewer flagged**
+
+- Pipeline not run. AS-9252 was built directly by decision — the gate was exploratory and its answer
+  could have been "this does not work", which is not a shape `/ship` handles well.
