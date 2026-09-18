@@ -12,7 +12,7 @@ updated: {{date:YYYY-MM-DD}}
 
 # {{title}}
 
-- **Status:** raw | grilling | decided | building | in review | implemented | superseded
+- **Status:** raw | grilling | decided | building | done
 - **Ticket:** [[CBS-1234]]
 - **Grilled:** {{date:YYYY-MM-DD}} via /grill-me
 - **Last touched:** {{date:YYYY-MM-DD}}

@@ -7,7 +7,7 @@
 | --- | --- |
 | `/raw` | Inbox. Anything captured: notes, PDFs, screenshots, links. Unprocessed. |
 | `/in-progress` | Every unfinished design doc, foldered `CBS/` and `AS/`. Parked work stays here too, flagged `later:`. |
-| `/wiki` | Clean notes and **landed** design docs, foldered `CBS/` and `AS/`. Plus `/wiki/repos/`, outside the lifecycle. One topic per file, kebab-case. |
+| `/wiki` | Clean notes and **done** design docs, filed `<WEEK>/<TEAM>/` — one folder per working week, named by its Monday. Plus `/wiki/repos/`, outside the lifecycle. One topic per file, kebab-case. |
 | `/archive` | Processed `/raw` files land here. Permanent, immutable record. |
 | `/coding` | Engineering notes and reusable orchestration prompts. Holds `coding/ship/` — the live `/ship` agents, command, and installer — plus `coding/ship-workflow.js`, the Workflow-script variant of the same pipeline. |
 | `/prompts` | Standing prompts run against the vault. Currently empty. |
@@ -29,7 +29,7 @@
 
 - Capture lands in `/raw`, unprocessed.
 - Processing turns it into a clean entry in `/wiki`; the original moves to `/archive` so it is visible what has been handled.
-- A design doc sits in `/in-progress` for its whole working life and moves to `/wiki` once, at ready-to-merge. Parking flags it in place rather than moving it. That lifecycle is [the workflow protocol](workflow.md#where-work-lives) — the only copy.
+- A design doc sits in `/in-progress` for its whole working life and moves into `/wiki/<WEEK>/<TEAM>/` once, when Neru marks it done. Parking flags it in place rather than moving it. That lifecycle is [the workflow protocol](workflow.md#where-work-lives) — the only copy.
 - `/archive` is append-only. Nothing is ever edited or removed once it lands.
 
 The rules enforcing this are the Hard Rules in [`CLAUDE.md`](../CLAUDE.md) — the only copy.

@@ -24,6 +24,7 @@ This file holds **who Neru is, what to do, and the hard rules**. Every protocol 
 - **Think through a ticket or idea** → Phase 1. Run `/grill-me`, `/grill-with-docs`, or `/grilling`, then file the agreed output as a design doc in `/in-progress/<TEAM>/`.
 - **Implement a ticket** → Phase 2. Run it through `/ship`, with the design doc as the input. This is the default path for ticket work, not an option.
 - **Finish something later** → dump the session's decisions into the file as a dated handoff section, then flag it `later:` + `priority:`. The file does not move. See [the workflow protocol](protocols/workflow.md#finish-it-later--the-later-flag).
+- **Mark something done** → set `status: done`, drop `later`/`priority`, and file it into `/wiki/<WEEK>/<TEAM>/`. Only Neru's word triggers this. See [the workflow protocol](protocols/workflow.md#done--filing-into-the-week).
 - **Answer questions** → read `/wiki`, `/in-progress`, `/tickets`, and `/archive` to answer ad-hoc questions about past thinking and past work.
 - **Install something** → see [protocols/skills.md](protocols/skills.md).
 

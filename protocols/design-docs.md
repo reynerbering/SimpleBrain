@@ -4,8 +4,8 @@
 > `CLAUDE.md` imports this file. Do not restate any of it there or in `README.md`.
 
 **Location:** `/in-progress/<TEAM>/<KEY>-<slug>.md` — e.g. `in-progress/CBS/CBS-1234-rate-limiting.md`.
-It stays there for its whole working life, parked or not, and moves to `/wiki/<TEAM>/` once at
-ready-to-merge. That lifecycle and the `later` flag are [the workflow protocol](workflow.md#where-work-lives)
+It stays there for its whole working life, parked or not, and moves to `/wiki/<WEEK>/<TEAM>/` once —
+when Neru marks it done. That lifecycle and the `later` flag are [the workflow protocol](workflow.md#where-work-lives)
 — the only copy.
 
 - Work that started as a raw idea with no ticket uses a bare kebab-case slug (`agent-memory-compaction.md`). Rename it through Obsidian once a key exists.

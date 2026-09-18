@@ -28,10 +28,10 @@ views:
       - updated
     group_by: status
   - type: table
-    name: Not yet implemented
+    name: Still open
     filters:
       and:
-        - status != "implemented"
+        - status != "done"
     order:
       - file.name
       - status

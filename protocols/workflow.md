@@ -81,22 +81,43 @@ touched and check `git status` before committing.
 
 ## Where work lives
 
-Two folders and a flag. A design doc makes **one** move in its life.
+Two places. A design doc makes **one** move in its life, and Neru triggers it.
 
 | Folder | Holds | Layout |
 | --- | --- | --- |
-| `/in-progress/<TEAM>/` | Every design doc that is not finished — being worked on *or* parked | `CBS/`, `AS/` |
-| `/wiki/<TEAM>/` | Landed — ready to merge, in approval, or merged | `CBS/`, `AS/` |
+| `/in-progress/<TEAM>/` | Every design doc that is not done — worked on *or* parked | `CBS/`, `AS/` |
+| `/wiki/<WEEK>/<TEAM>/` | Done, filed under the working week it was marked | one folder per week, `CBS/` and `AS/` inside |
 
 - **Everything starts and stays in `/in-progress/<TEAM>/`** — a raw idea, a Phase 1 grilling, a Phase 2
   pipeline run, something parked for a month. Parking does not move a file.
-- **It moves to `/wiki/<TEAM>/` once, at the end** — when it is ready to merge or being approved. Not
-  when Phase 1 lands, not when `status: decided`. A doc with the pipeline still to run stays put.
-- **The move and `status: in review` are the same event** — see [the status vocabulary](frontmatter.md#design-doc-status).
+- **Nothing moves on its own.** Not a merge, not a green pipeline, not `status: decided`. See below.
 - `/wiki/repos/` is outside this lifecycle — repo memory is never "in progress". See
   [the repo memory protocol](repo-memory.md).
 - **`/tickets/<TEAM>/<KEY>.md` never moves.** A ticket log is not work-in-flight; it lives in `/tickets`
   from the first entry to the last. The team folder there is organisation, nothing more.
+
+### Done — filing into the week
+
+**Only Neru marks a doc done.** Merged, shipped, approved, abandoned — none of those set it. He says
+the word or it is not done. When he does:
+
+1. **Set `status: done`.**
+2. **Drop `later` and `priority`** if present.
+3. **Move the file to `/wiki/<WEEK>/<TEAM>/`**, creating the folders if they do not exist.
+
+`<WEEK>` is the **Monday of the working week he said it**, as `YYYY-MM-DD`. Not the week the work
+happened — the week it was marked. Compute it, never count back by hand:
+
+```bash
+date -d "-$(( $(date +%u) - 1 )) days" +%Y-%m-%d
+```
+
+- **The week is Mon–Fri.** Neru does not work weekends, so a doc marked on a Saturday or Sunday folds
+  back into the week that just ended — which is what the command above already does. Verified
+  2026-09-19: Saturday → `2026-09-14`; Sunday the 20th → `2026-09-14`; Monday the 14th → itself.
+- **Team folders are created lazily.** A week with only CBS work has no `AS/` folder in it.
+- A done doc is still amendable. Appending a dated revision to something in `/wiki` does not move it
+  back, and does not re-date its week folder.
 
 ### "Finish it later" — the `later` flag
 
@@ -142,10 +163,8 @@ The handoff section:
 
 ### When the flag comes off
 
-- **Only when the work is done.** A session picking the doc back up leaves `later` and `priority`
+- **Only when Neru marks the doc done.** A session picking it back up leaves `later` and `priority`
   alone — the flag survives being worked on, so the Later view is not quietly emptied by activity.
-- **Both properties are dropped when the doc moves to `/wiki/<TEAM>/`** at ready-to-merge. Nothing in
-  `/wiki` carries a `later`.
 - **Re-parking overwrites `later` with the new date** and re-asks the priority. The property means
   "when it was *last* parked", which is what makes oldest-first a useful order.
 
@@ -153,13 +172,13 @@ The handoff section:
 
 | Artifact | Lives in | Holds |
 | --- | --- | --- |
-| Design doc | `/in-progress/<TEAM>/` until ready to merge, then `/wiki/<TEAM>/` — named `<KEY>-<slug>.md` | Every decision + reasoning, before and after implementation |
+| Design doc | `/in-progress/<TEAM>/` until Neru marks it done, then `/wiki/<WEEK>/<TEAM>/` — named `<KEY>-<slug>.md` | Every decision + reasoning, before and after implementation |
 | Ticket log | `/tickets/<TEAM>/<KEY>.md` | Dated activity: what was done, what was touched, pipeline verdict, blockers |
 | Pipeline handoffs | `.pipeline/` in the repo | Scratch. Gitignored. Not a record. |
 
 The design doc owns the **decisions**. The ticket owns the **log**. They link to each other and neither repeats the other.
 
 **Link by bare name — `[[CBS-1234-rate-limiting]]`, not `[[wiki/CBS-1234-rate-limiting.md]]`.** A design
-doc changes folder when it lands, so a path-form link breaks on the one move that matters.
+doc changes folder when it is marked done, so a path-form link breaks on the one move that matters.
 
 **Ticket and design-doc files always live in the vault**, even when the code work happens in a repo elsewhere. Never scatter them into the repo being worked on.
