@@ -4,6 +4,8 @@ ticket:
 team: 
 status: decided
 repos: []
+# later: {{date:YYYY-MM-DD}}   # uncomment when parked, with priority below
+# priority: high | medium | low
 grilled: {{date:YYYY-MM-DD}}
 updated: {{date:YYYY-MM-DD}}
 ---
@@ -16,7 +18,7 @@ updated: {{date:YYYY-MM-DD}}
 - **Last touched:** {{date:YYYY-MM-DD}}
 
 > Frontmatter rules: [[protocols/frontmatter.md]]. How to write this doc: [[protocols/design-docs.md]].
-> Which folder it lives in, and the "finish it later" handoff section: [[protocols/workflow.md]].
+> Where it lives, the `later` flag and the handoff section: [[protocols/workflow.md]].
 > Delete this blockquote once filled in.
 
 ## Problem

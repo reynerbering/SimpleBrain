@@ -38,3 +38,16 @@ views:
       - team
       - repos
       - grilled
+  - type: table
+    name: Later
+    filters:
+      and:
+        - later.isEmpty() == false
+    order:
+      - file.name
+      - priority
+      - later
+      - status
+      - team
+      - repos
+    group_by: priority

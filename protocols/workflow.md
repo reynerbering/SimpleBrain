@@ -81,33 +81,43 @@ touched and check `git status` before committing.
 
 ## Where work lives
 
-A design doc moves between three folders over its life. **The folder answers "is anyone on this?"
-The `status` property answers "how far along is it?"** Those are different questions — do not collapse
-one into the other.
+Two folders and a flag. A design doc makes **one** move in its life.
 
 | Folder | Holds | Layout |
 | --- | --- | --- |
-| `/in-progress/<TEAM>/` | Work a session is actively on — **both** phases | `CBS/`, `AS/` |
-| `/later/` | Parked. Still live, waiting on a future session | **flat**, no subfolders |
+| `/in-progress/<TEAM>/` | Every design doc that is not finished — being worked on *or* parked | `CBS/`, `AS/` |
 | `/wiki/<TEAM>/` | Landed — ready to merge, in approval, or merged | `CBS/`, `AS/` |
 
-- **Everything starts in `/in-progress/<TEAM>/`** — a raw idea, a Phase 1 grilling, a Phase 2 pipeline run.
-- **It leaves for `/wiki/<TEAM>/` only when it is ready to merge or being approved.** Not when Phase 1
-  lands, not when `status: decided`. A doc with the whole pipeline still to run is in progress.
+- **Everything starts and stays in `/in-progress/<TEAM>/`** — a raw idea, a Phase 1 grilling, a Phase 2
+  pipeline run, something parked for a month. Parking does not move a file.
+- **It moves to `/wiki/<TEAM>/` once, at the end** — when it is ready to merge or being approved. Not
+  when Phase 1 lands, not when `status: decided`. A doc with the pipeline still to run is in progress.
 - `/wiki/repos/` is outside this lifecycle — repo memory is never "in progress". See
   [the repo memory protocol](repo-memory.md).
 - **`/tickets/<TEAM>/<KEY>.md` never moves.** A ticket log is not work-in-flight; it lives in `/tickets`
   from the first entry to the last. The team folder there is organisation, nothing more.
 
-### Parking work — "finish it later"
+### "Finish it later" — the `later` flag
 
-When Neru says **finish it later**, the file is not just moved. The session's contents go into it first.
+`later` marks a doc as a **priority to pick back up**. It is a subset of `/in-progress/`: same folder,
+still unfinished, just flagged and ranked.
 
-1. **Append a dated handoff section to the bottom of the file.** Never rewrite what is above it.
-2. **Then** move the file to `/later/`, flat.
-3. **`status` does not change.** Parked is a folder, not a status.
+When Neru says **finish it later**:
 
-The section:
+1. **Append a dated handoff section to the bottom of the file.** Never rewrite what is above it. This
+   is the substance of the instruction — the flag is the easy half.
+2. **Set two properties:**
+
+   ```yaml
+   later: <YYYY-MM-DD>        # the date it was parked
+   priority: high             # high | medium | low
+   ```
+
+3. **Ask for the priority if Neru did not give one.** Never infer it from how urgent the work sounds —
+   that is inventing a fact.
+4. **`status` does not change.** Parked is a flag, not a stage.
+
+The handoff section:
 
 ```markdown
 ## <YYYY-MM-DD> — parked
@@ -129,23 +139,26 @@ The section:
 - `OPEN QUESTION` markers carry their usual meaning — [the Planner stops on them](design-docs.md).
 - Run `date` for the heading. Never back-fill it.
 
-### Resuming from `/later/`
+### When the flag comes off
 
-- Picking a file up **moves it back to `/in-progress/<TEAM>/` first**, before any work starts. That is
-  what keeps `/later/` an accurate list of what nobody is on.
-- Old handoff sections stay. They are the record of how the work got here.
+- **Only when the work is done.** A session picking the doc back up leaves `later` and `priority`
+  alone — the flag survives being worked on, so the Later view is not quietly emptied by activity.
+- **Both properties are dropped when the doc moves to `/wiki/<TEAM>/`** at ready-to-merge. Nothing in
+  `/wiki` carries a `later`.
+- **Re-parking overwrites `later` with the new date** and re-asks the priority. The property means
+  "when it was *last* parked", which is what makes oldest-first a useful order.
 
 ## Where things end up
 
 | Artifact | Lives in | Holds |
 | --- | --- | --- |
-| Design doc | `/in-progress/<TEAM>/`, `/later/`, or `/wiki/<TEAM>/` — named `<KEY>-<slug>.md` | Every decision + reasoning, before and after implementation |
+| Design doc | `/in-progress/<TEAM>/` until ready to merge, then `/wiki/<TEAM>/` — named `<KEY>-<slug>.md` | Every decision + reasoning, before and after implementation |
 | Ticket log | `/tickets/<TEAM>/<KEY>.md` | Dated activity: what was done, what was touched, pipeline verdict, blockers |
 | Pipeline handoffs | `.pipeline/` in the repo | Scratch. Gitignored. Not a record. |
 
 The design doc owns the **decisions**. The ticket owns the **log**. They link to each other and neither repeats the other.
 
-**Link by bare name — `[[CBS-1234-rate-limiting]]`, not `[[wiki/CBS-1234-rate-limiting.md]]`.** Design
-docs move folders every time work is parked or resumed, so a path-form link is broken by design.
+**Link by bare name — `[[CBS-1234-rate-limiting]]`, not `[[wiki/CBS-1234-rate-limiting.md]]`.** A design
+doc changes folder when it lands, so a path-form link breaks on the one move that matters.
 
 **Ticket and design-doc files always live in the vault**, even when the code work happens in a repo elsewhere. Never scatter them into the repo being worked on.
