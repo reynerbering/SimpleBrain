@@ -10,6 +10,7 @@ views:
       - team
       - ticket
       - updated
+    sort: []
     group_by: repos
   - type: table
     name: By team
@@ -40,9 +41,6 @@ views:
       - grilled
   - type: table
     name: Later
-    filters:
-      and:
-        - later.isEmpty() == false
     order:
       - file.name
       - priority
