@@ -152,10 +152,10 @@ Three of the four were **answered against prod on 2026-09-18** — full results 
 [the prod-verification revision](#2026-09-18--revision-prod-verification). Summarised here so this
 section stays readable at a glance:
 
-- ~~OPEN QUESTION: **What exact type and length is `job_distribution_transmit_site_setting.value`?**~~ — **ANSWERED 2026-09-18, prod.** `varchar(500) NOT NULL`. `name` is `varchar(25) NOT NULL`. **D7 is correct as written**: map as `string`, compare `== "1"`.
-- ~~OPEN QUESTION: **Is `requires_pending_delete = 1` actually populated for the integrated sites that need close requests?**~~ — **ANSWERED 2026-09-18, prod. NO — and this trips D8's gate.** Only **12 of 6,217** strict-`IsCloud` sites carry the flag. Of Core V2's own 173,776 delete-status writes in the last 30 days, **99.3% (172,545) land on unflagged sites**. **D2 and D8 must be re-decided before any implementation.**
+- ✅ ~~**What exact type and length is `job_distribution_transmit_site_setting.value`?**~~ — **ANSWERED 2026-09-18, prod.** `varchar(500) NOT NULL`. `name` is `varchar(25) NOT NULL`. **D7 is correct as written**: map as `string`, compare `== "1"`.
+- ✅ ~~**Is `requires_pending_delete = 1` actually populated for the integrated sites that need close requests?**~~ — **ANSWERED 2026-09-18, prod. NO — and this trips D8's gate.** Only **12 of 6,217** strict-`IsCloud` sites carry the flag. Of Core V2's own 173,776 delete-status writes in the last 30 days, **99.3% (172,545) land on unflagged sites**. **D2 and D8 must be re-decided before any implementation.**
 - OPEN QUESTION: **Does the seeded `coreapi-test-sql` container have `job_distribution_transmit_site_setting`?** Still open — not checked, and moot until D2/D8 are resolved. If missing, the fix is an entry in `CoreAPI.Test/Scripts/000_schema_drift.sql` (see the pre-implementation revision), not the other suite's schema scripts.
-- ~~OPEN QUESTION: **Which of the five write paths does each of Shiela's nine sites actually take?**~~ — **ANSWERED 2026-09-18, prod.** All nine have **no setting row at all** — not even an explicit `'0'`. Feature breakdown is in the revision. This is the finding that exposes the semantics problem: the rule cannot tell Shiela's 9 sites apart from the other 745 Core V2 stops postings on.
+- ✅ ~~**Which of the five write paths does each of Shiela's nine sites actually take?**~~ — **ANSWERED 2026-09-18, prod.** All nine have **no setting row at all** — not even an explicit `'0'`. Feature breakdown is in the revision. This is the finding that exposes the semantics problem: the rule cannot tell Shiela's 9 sites apart from the other 745 Core V2 stops postings on.
 
 ### How to close them
 
