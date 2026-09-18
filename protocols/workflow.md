@@ -31,11 +31,45 @@ Nothing gets implemented before the thinking is finished.
 
 The agreed document is the input. Now it gets built.
 
-1. **Branch for the ticket** — `feat/CBS-1234-<slug>`. Never on `main`.
+1. **Branch for the ticket** — see [Branch and worktree naming](#branch-and-worktree-naming) below.
+   Never on a shared branch.
 2. **Run `/ship`** — the four-agent pipeline. Stages, models, gates, and handoff files are in [`coding/four-agent-pipeline.md`](../coding/four-agent-pipeline.md); `coding/ship-workflow.js` is the Workflow-script variant of the same thing.
 3. **Feed the Planner the design doc**, not a one-line ask. Phase 1 exists so the spec starts from settled decisions.
 4. **Read `.pipeline/review.md` first**, then the diff. The pipeline never merges — Neru is the final gate.
 5. **Fold the outcome back in.** Anything the pipeline changed, flagged, or forced a rethink on goes back into the same wiki doc as a dated revision.
+
+## Branch and worktree naming
+
+The single source for how Phase 2 work is named on disk and in git.
+
+| Thing | Pattern | Example |
+| --- | --- | --- |
+| Branch | `feat/<JIRA-KEY>-<slug>` | `feat/CBS-4436-v2-posting-analytics-wrap` |
+| Isolated worktree | `<repo-folder>-<JIRA-KEY>` beside the repo | `C:\JT Repositories\CoreAPI-CBS-4436` |
+
+- **`<slug>` is the design doc's slug**, so `wiki/<KEY>-<slug>.md`, the branch and the worktree all
+  carry the same name. One string to search for across the vault, git and Jira.
+- **Never branch from a shared branch's working tree while it is dirty.** Check the repo's default
+  branch with `git symbolic-ref refs/remotes/origin/HEAD` — on `CoreAPI` it is **`develop`**, not
+  `main`, so an MR targets `develop`.
+- **Use a separate worktree when the main checkout is not clean and on the right branch:**
+
+  ```
+  git worktree add -b feat/<KEY>-<slug> "<repo>-<KEY>" <base-commit>
+  ```
+
+  Base it on the **exact commit the design doc cites**, not on whatever `HEAD` happens to be.
+
+**Why the worktree, not just a branch.** Switching branches carries uncommitted changes with you. If
+the main checkout holds unrelated in-flight work, that work lands in the pipeline's diff, goes to the
+Reviewer as if it were part of the feature, and gets swept into the commit. A worktree is a separate
+directory, so the other branch's dirty tree is untouchable — verify it with `git status` in the
+original checkout after the run.
+
+**Commit named files, never `git add -A`.** A repo can carry local-only edits that must never be
+committed — on `CoreAPI`, `CoreAPI.TestFramework/CoreApiTestFramework.cs` (`jtmssql` -> `localhost`) is
+a documented local setup step that would point CI at localhost. Stage the files the change actually
+touched and check `git status` before committing.
 
 ## Where things end up
 

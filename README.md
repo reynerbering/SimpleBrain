@@ -8,7 +8,7 @@ A personal second brain: raw capture in, clean notes and shipped tickets out.
 
 | Protocol | Owns | Scope |
 | --- | --- | --- |
-| [workflow.md](protocols/workflow.md) | The two-phase workflow, Phase 1 and Phase 2 steps, where each artifact ends up | travels |
+| [workflow.md](protocols/workflow.md) | The two-phase workflow, Phase 1 and Phase 2 steps, **branch and worktree naming**, where each artifact ends up | travels |
 | [design-docs.md](protocols/design-docs.md) | Design doc location, division of labour with tickets, how to write one | travels |
 | [tickets.md](protocols/tickets.md) | Ticket file location, entry shape, sourcing from Jira, pipeline logging | travels |
 | [frontmatter.md](protocols/frontmatter.md) | The property contract and the Bases that consume it | travels |
@@ -20,6 +20,19 @@ A personal second brain: raw capture in, clean notes and shipped tickets out.
 | [skills.md](protocols/skills.md) | Where the skills come from, and the three installers | vault-only |
 
 "Travels" means the rule applies in every repo and is `@import`ed into every session. "Vault-only" means it governs this vault and should not be applied inside a code repo.
+
+**Naming**, at a glance — the rules themselves live in
+[workflow.md](protocols/workflow.md#branch-and-worktree-naming); this is a pointer, not a copy:
+
+| Artifact | Pattern |
+| --- | --- |
+| Design doc | `wiki/<JIRA-KEY>-<slug>.md` |
+| Ticket log | `tickets/<JIRA-KEY>.md` |
+| Branch | `feat/<JIRA-KEY>-<slug>` |
+| Isolated worktree | `<repo-folder>-<JIRA-KEY>`, beside the repo |
+
+The `<slug>` is the same string in all of them, so one search finds the doc, the branch and the
+worktree.
 
 **Also single-source, elsewhere:**
 
