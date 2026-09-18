@@ -88,7 +88,7 @@ The four agent prompts are **verbatim** from the doc — only YAML frontmatter a
 ## Running it
 
 ```
-git checkout -b feat/PROJ-1234-rate-limiting
+git checkout -b PROJ-1234-rate-limiting
 /ship add rate limiting to the login endpoint, max 5 attempts per minute per IP, return 429 after limit
 ```
 

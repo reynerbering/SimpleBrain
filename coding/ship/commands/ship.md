@@ -10,7 +10,7 @@ If $ARGUMENTS is empty, stop and ask what to build. Do not infer a feature from 
 ## Preflight
 
 1. Confirm the working directory is a git repo. If not, stop.
-2. Check the current branch. If it is `main`, `master`, `develop`, or `trunk`, STOP and tell me — offer a branch name derived from the request (e.g. `feat/<slug>`, or `feat/<JIRA-KEY>-<slug>` if the request names a ticket) and wait for my go-ahead. Never run the pipeline on a shared branch.
+2. Check the current branch. If it is `main`, `master`, `develop`, or `trunk`, STOP and tell me — offer a branch name derived from the request (`<JIRA-KEY>-<slug>` if the request names a ticket, otherwise a bare kebab-case slug — **no `feat/` prefix**; confirm against the repo's own convention with `git ls-remote --heads origin`) and wait for my go-ahead. Never run the pipeline on a shared branch.
 3. Delete the contents of `.pipeline/` so no agent reads stale output from a previous run. Recreate the directory empty.
 4. If `.pipeline/` is not covered by this repo's `.gitignore` or your global excludes, say so once. It is scratch handoff state and should not be committed.
 

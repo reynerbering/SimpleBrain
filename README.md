@@ -28,7 +28,7 @@ A personal second brain: raw capture in, clean notes and shipped tickets out.
 | --- | --- |
 | Design doc | `wiki/<JIRA-KEY>-<slug>.md` |
 | Ticket log | `tickets/<JIRA-KEY>.md` |
-| Branch | `feat/<JIRA-KEY>-<slug>` |
+| Branch | `<JIRA-KEY>-<slug>` — no `feat/` prefix |
 | Isolated worktree | `<repo-folder>-<JIRA-KEY>`, beside the repo |
 
 The `<slug>` is the same string in all of them, so one search finds the doc, the branch and the

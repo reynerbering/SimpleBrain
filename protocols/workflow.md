@@ -44,18 +44,26 @@ The single source for how Phase 2 work is named on disk and in git.
 
 | Thing | Pattern | Example |
 | --- | --- | --- |
-| Branch | `feat/<JIRA-KEY>-<slug>` | `feat/CBS-4436-v2-posting-analytics-wrap` |
+| Branch | `<JIRA-KEY>-<slug>` | `CBS-4436-v2-posting-analytics-wrap` |
 | Isolated worktree | `<repo-folder>-<JIRA-KEY>` beside the repo | `C:\JT Repositories\CoreAPI-CBS-4436` |
 
+- **No `feat/` prefix.** The key leads. Verified against `CoreAPI`'s live open MRs on 2026-09-18 —
+  `CBS-4643-ofccp-getjobs-param-validation`, `CBS-4548-replaceuser-firstordefault`. A branch named
+  `feat/CBS-...` does not match what the team does and will not group with the rest.
 - **`<slug>` is the design doc's slug**, so `wiki/<KEY>-<slug>.md`, the branch and the worktree all
   carry the same name. One string to search for across the vault, git and Jira.
+- ⚠️ **Check the repo's real convention before creating the branch** — `git ls-remote --heads origin`,
+  or list its open MRs. This protocol travels, but **a repo's own convention outranks it inside that
+  repo** (see the hard rules in [`CLAUDE.md`](../CLAUDE.md)). This very rule was written the wrong way
+  round first: the vault said `feat/<KEY>-<slug>`, `CoreAPI` has never used a prefix, and the vault
+  pattern got applied without looking. Look.
 - **Never branch from a shared branch's working tree while it is dirty.** Check the repo's default
   branch with `git symbolic-ref refs/remotes/origin/HEAD` — on `CoreAPI` it is **`develop`**, not
   `main`, so an MR targets `develop`.
 - **Use a separate worktree when the main checkout is not clean and on the right branch:**
 
   ```
-  git worktree add -b feat/<KEY>-<slug> "<repo>-<KEY>" <base-commit>
+  git worktree add -b <KEY>-<slug> "<repo>-<KEY>" <base-commit>
   ```
 
   Base it on the **exact commit the design doc cites**, not on whatever `HEAD` happens to be.
