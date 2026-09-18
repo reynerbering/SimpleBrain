@@ -2,7 +2,7 @@
 type: design-doc
 ticket: CBS-4654
 team: CBS
-status: in progress
+status: raw
 repos:
   - CoreAPI
 updated: 2026-09-17

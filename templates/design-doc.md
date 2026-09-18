@@ -2,7 +2,7 @@
 type: design-doc
 ticket: 
 team: 
-status: decided
+status: raw
 repos: []
 # later: {{date:YYYY-MM-DD}}   # uncomment when parked, with priority below
 # priority: high | medium | low
@@ -12,7 +12,7 @@ updated: {{date:YYYY-MM-DD}}
 
 # {{title}}
 
-- **Status:** decided | in progress | implemented | superseded
+- **Status:** raw | grilling | decided | building | in review | implemented | superseded
 - **Ticket:** [[CBS-1234]]
 - **Grilled:** {{date:YYYY-MM-DD}} via /grill-me
 - **Last touched:** {{date:YYYY-MM-DD}}

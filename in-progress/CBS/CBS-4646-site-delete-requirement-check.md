@@ -2,7 +2,7 @@
 type: design-doc
 ticket: CBS-4646
 team: CBS
-status: in progress
+status: grilling
 repos:
   - CoreAPI
 grilled: 2026-09-18

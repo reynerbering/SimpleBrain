@@ -91,7 +91,8 @@ Two folders and a flag. A design doc makes **one** move in its life.
 - **Everything starts and stays in `/in-progress/<TEAM>/`** — a raw idea, a Phase 1 grilling, a Phase 2
   pipeline run, something parked for a month. Parking does not move a file.
 - **It moves to `/wiki/<TEAM>/` once, at the end** — when it is ready to merge or being approved. Not
-  when Phase 1 lands, not when `status: decided`. A doc with the pipeline still to run is in progress.
+  when Phase 1 lands, not when `status: decided`. A doc with the pipeline still to run stays put.
+- **The move and `status: in review` are the same event** — see [the status vocabulary](frontmatter.md#design-doc-status).
 - `/wiki/repos/` is outside this lifecycle — repo memory is never "in progress". See
   [the repo memory protocol](repo-memory.md).
 - **`/tickets/<TEAM>/<KEY>.md` never moves.** A ticket log is not work-in-flight; it lives in `/tickets`

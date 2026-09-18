@@ -10,7 +10,7 @@ The Bases in `wiki/design-docs.base` and `tickets/tickets.base` read these prope
 | `type` | both | `design-doc` or `ticket` |
 | `ticket` | both | a real Jira key — see [tickets.md](tickets.md) |
 | `team` | both | `CBS` or `AS` |
-| `status` | design doc | `decided`, `in progress`, `implemented`, `superseded` |
+| `status` | design doc | one of the seven in [Design doc `status`](#design-doc-status) below |
 | `status` | ticket | the Jira status string |
 | `source` | ticket | `jira` or `unverified` |
 | `repos` | both | list of **exact on-disk folder names** from the README repo tables |
@@ -23,6 +23,33 @@ The Bases in `wiki/design-docs.base` and `tickets/tickets.base` read these prope
 - **`repos` is a list, always** — even for a single repo. A string breaks the By-repo grouping.
 - Use the on-disk folder name verbatim: `CoreAPI` (PascalCase), `ea-distribution-update`, `apply-with-jobtarget-api`. Not the GitLab path, not the display name.
 - A repo not listed in the [`README.md`](../README.md) repo tables has no assigned team. Ask before inventing one.
+
+## Design doc `status`
+
+Seven values. **`status` answers "how far along is this". The folder answers "is it finished".** The
+two meet at exactly one step: `in review` is the first value that lives in `/wiki`.
+
+| `status` | Means | Folder |
+| --- | --- | --- |
+| `raw` | Captured. No Phase 1 session has run. | `/in-progress/<TEAM>/` |
+| `grilling` | Phase 1 underway — decisions not settled, or reopened. | `/in-progress/<TEAM>/` |
+| `decided` | Phase 1 complete, every `OPEN QUESTION` cleared, Phase 2 unblocked. | `/in-progress/<TEAM>/` |
+| `building` | Phase 2 running — branch cut, pipeline in flight. | `/in-progress/<TEAM>/` |
+| `in review` | Ready to merge, or in approval. | `/wiki/<TEAM>/` |
+| `implemented` | Merged. | `/wiki/<TEAM>/` |
+| `superseded` | Replaced or abandoned. Reachable from any point. | `/wiki/<TEAM>/` |
+
+- **There is no `in progress` value any more.** It restated the folder and said nothing else. `raw`,
+  `grilling`, `decided` and `building` all mean "in progress" — they say *which part*.
+- **Setting `in review` and moving the file to `/wiki/<TEAM>/` are the same event.** Do both or neither.
+  That move also drops [`later` and `priority`](workflow.md#when-the-flag-comes-off).
+- **`grilling` is the value to go back to** when a settled decision reopens — `decided` is not a
+  ratchet. CBS-4646 did exactly this on 2026-09-18.
+- **`status` is unrelated to `later`.** A doc can be `building` and parked, or `raw` and parked. One is
+  progress, the other is attention.
+
+⚠️ The **Not yet implemented** view is `status != "implemented"`, so `superseded` docs show up in it.
+That predates this vocabulary and is left as-is; the fix is a second filter clause if it ever bites.
 
 ## The Bases that consume this
 

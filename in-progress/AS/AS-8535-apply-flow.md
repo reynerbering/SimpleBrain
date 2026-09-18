@@ -2,7 +2,7 @@
 type: design-doc
 ticket: AS-8535
 team: AS
-status: in progress
+status: building
 repos:
   - clickapply
   - hosted-apply
