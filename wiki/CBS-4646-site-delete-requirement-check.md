@@ -53,6 +53,8 @@ Collapses to one sentence: **`pending_delete` is written only when the site requ
 
 CBS-4646's description only defines the bottom two rows. The top row is the one that explains all 43 stuck postings, and it came from DBA-2636's wording, not from this ticket.
 
+> ⚠️ **The first row of this matrix is reopened as of 2026-09-18.** Prod data shows `requires_pending_delete` is set on only 113 sites, so "no" is not a discriminator — it is a near-universal default that would suppress 99.3% of Core V2's close requests. Row 1 must be re-decided before this table is built. Rows 2 and 3 are unaffected. See [the prod-verification revision](#2026-09-18--revision-prod-verification).
+
 ## Where the code actually is
 
 Read on 2026-09-17 against `CBS-4643-ofccp-getjobs-param-validation` @ `fcf24ca5`.
@@ -88,7 +90,7 @@ Read 2026-09-18 from the DataGrip offline cache (see [[protocols/repo-memory.md]
 ## Decisions
 
 - **D1 — Scope to V2 `StopPostingAsync` only.** It is the one flow that is C#; the V1/proc paths are DBA-owned. The decision stands unchanged after reading the actual proc DDL (see below) — which **confirms** the premise rather than assuming it: neither stop proc has the mechanism today. The V1 gap is named below in Scope, not silently left out.
-- **D2 — Site does not require deletion → expire immediately.** CBS-4646 never defines this branch; DBA-2636 says "skipped and NOT moved". *Skip* is safe wording in a nightly cleanup proc but wrong in a **stop** flow: the caller asked for the posting to stop, so leaving the status untouched ends with `IsStopped = true, Show = false` and a status still reading `pending`, which `PostingQueries` maps as live. One terminal state, no fourth posting shape.
+- ⚠️ **D2 — REOPENED 2026-09-18, do not implement.** Prod data refuted the premise; see [the prod-verification revision](#2026-09-18--revision-prod-verification). Original reasoning kept below as the record. — **Site does not require deletion → expire immediately.** CBS-4646 never defines this branch; DBA-2636 says "skipped and NOT moved". *Skip* is safe wording in a nightly cleanup proc but wrong in a **stop** flow: the caller asked for the posting to stop, so leaving the status untouched ends with `IsStopped = true, Show = false` and a status still reading `pending`, which `PostingQueries` maps as live. One terminal state, no fourth posting shape.
 - **D3 — "Duration reached" reads `jobs_sites.expire`, not `p_products.duration`.** `expire` *is* the product duration, materialised at create, and it is already on the loaded entity — zero extra queries. Two rules travel with this:
   - `Expire` is `DateTime?`. **Null → treat as not reached → `pending_delete`.** The safe side: we still tell the board to close.
   - PATCH/PUT posting can overwrite `expire`. An operator who shortened a posting genuinely *has* shortened its duration, so honouring it is correct. "Product duration" in the ticket therefore means **the posting's effective expiry**.
@@ -100,7 +102,7 @@ Read 2026-09-18 from the DataGrip offline cache (see [[protocols/repo-memory.md]
 - **D7 — New entity + one batched lookup, not a navigation Include.** `LoadChildPostings` includes `Site.JobDistributionTransmits` **only when `!onlyExpireIncludes`** (`:242-249`) — and D5 gates the Expire path, which is exactly the `onlyExpireIncludes = true` case. A navigation read would force that conditional open and undo the narrowing its XML docs were written to justify. Instead: collect distinct site IDs across parent + children, one query, return a `HashSet<int>`.
   - `value` mapped as **`string`**, compared `== "1"`. Every other `name`/`value` pair in this schema is a string (`JobExternalTransmitLoginEntity.Value`, `RecruiterSiteLoginDetailEntity.Value`). The ticket's SQL writes `tss.value = 1` unquoted, which SQL Server resolves by implicit conversion and EF will not. **Assumption, not verified** — see Open questions.
   - `WithHint(TableHint.Nolock)`, matching the ticket's `WITH(NOLOCK)` and the existing idiom at `JobFeatures/Common.cs:44`.
-- **D8 — Data-driven for all sites, no feature flag, conditional on a prod verification gate.** The failure modes are **not symmetric**:
+- ⚠️ **D8 — REOPENED 2026-09-18, its own gate failed.** The verification this decision made conditional was run and came back negative; see [the prod-verification revision](#2026-09-18--revision-prod-verification). Original reasoning kept below as the record. — **Data-driven for all sites, no feature flag, conditional on a prod verification gate.** The failure modes are **not symmetric**:
   - sending an unneeded delete → DES noise. Today's state, and what Shiela filed.
   - **not** sending a needed delete → the posting stays live on the board after the client stopped it. Customer-visible, and on credit-based boards, billable.
 
@@ -195,6 +197,8 @@ GROUP BY tss.value;
 ```
 
 **OQ2b — the risky cross-check: integrated sites *without* the flag.** A large `unflagged` is the result that stops the design — it would mean we quietly cease sending close requests to integrated boards.
+
+> ⚠️ **The CTE version below was rejected by the MCP tool** ("Only SELECT queries are allowed") and its `IsCloud` definition is loose. Kept for the record. **Use the verified-working versions in [Queries as actually run](#queries-as-actually-run).**
 
 ```sql
 WITH flagged AS (
@@ -370,14 +374,96 @@ PJO-11160 was filed to prevent.**
 Nikole — the 99.3% figure reframes the ticket from "cleanup" to "estate-wide behaviour change", which
 is a product decision, not an implementation detail.
 
-### Queries
+### Queries as actually run
 
-All five are reproducible; the originals are in [How to close them](#how-to-close-them). Two
-gotchas for whoever re-runs them:
+Verbatim, all against `prod-64recs-mssql` on **2026-09-18**. The originals in
+[How to close them](#how-to-close-them) are kept for the record but two of them do not execute —
+use these. **Every count is a point-in-time reading; the 30-day windows will drift, so re-run rather
+than quote these numbers as current.**
 
-- **The MCP tool rejects CTEs** — `WITH …` fails the "SELECT only" guard. Rewrite with `EXISTS`
-  subqueries or a derived table.
-- **It also rejects `SUM(CASE WHEN EXISTS(...))` directly** ("aggregate on an expression containing
-  a subquery") — wrap the row-level `CASE` in a derived table and aggregate outside it.
-- Grouping `jobs_sites_status` by `created_by`/`process` over a 7- or 30-day window **times out at
-  60s**. Counting with `SUM(CASE WHEN created_by = … )` over the same window returns fine.
+**OQ1** — not SQL. `mssql_list_columns` with `tableName: "dbo.job_distribution_transmit_site_setting"`.
+Simpler than the `sys.columns` join and returns defaults and nullability too.
+
+**OQ2a — values present and site counts.** Ran as written in *How to close them*, unchanged.
+Returned `'1'` → 108 sites, `'0'` → 5 sites.
+
+**OQ2b — strict `IsCloud` sites, flagged vs not.** Mirrors `Common.IsCloud` exactly (site active +
+pipeline enabled/active + `external_job_posting_integration` active + **not** php enabled/active).
+Returned 6,217 / 12 / 6,205.
+
+```sql
+SELECT COUNT(*) AS cloud_sites_strict, SUM(x.has_flag) AS flagged, SUM(1-x.has_flag) AS unflagged
+FROM (
+  SELECT s.site_id,
+    CASE WHEN EXISTS (
+      SELECT 1 FROM [64recs67o].dbo.job_distribution_transmit_site ts WITH(NOLOCK)
+      JOIN [64recs67o].dbo.job_distribution_transmit_site_setting tss WITH(NOLOCK)
+        ON tss.transmit_site_id = ts.transmit_site_id
+      WHERE ts.site_id = s.site_id AND ts.active = 1 AND tss.active = 1
+        AND tss.name = 'requires_pending_delete' AND tss.value = '1'
+    ) THEN 1 ELSE 0 END AS has_flag
+  FROM [64recs67o].dbo.p_sites s WITH(NOLOCK)
+  WHERE s.active = 1
+    AND EXISTS (SELECT 1 FROM [64recs67o].dbo.p_sites_features f WITH(NOLOCK)
+                WHERE f.site_id = s.site_id AND f.feature = 'oneclick_integration_pipeline'
+                  AND f.enabled = 1 AND f.active = 1)
+    AND EXISTS (SELECT 1 FROM [64recs67o].dbo.p_sites_features f WITH(NOLOCK)
+                WHERE f.site_id = s.site_id AND f.feature = 'external_job_posting_integration'
+                  AND f.active = 1)
+    AND NOT EXISTS (SELECT 1 FROM [64recs67o].dbo.p_sites_features f WITH(NOLOCK)
+                    WHERE f.site_id = s.site_id AND f.feature = 'oneclick_integration_php'
+                      AND f.enabled = 1 AND f.active = 1)
+) x
+```
+
+**OQ2c — writer split over 30 days.** The `GROUP BY created_by` version times out; this form returns.
+Returned `core_api_posting_stop` 173,776 · `usp_oneclick_posting_stop` 96,106 · all 595,284.
+
+```sql
+SELECT
+  SUM(CASE WHEN jss.created_by = 'core_api_posting_stop'     THEN 1 ELSE 0 END) AS core_api_v2,
+  SUM(CASE WHEN jss.created_by = 'usp_oneclick_posting_stop' THEN 1 ELSE 0 END) AS proc_posting_stop,
+  COUNT(*) AS all_rows
+FROM [64recs67o].dbo.jobs_sites_status jss WITH(NOLOCK)
+WHERE jss.status IN ('pending_delete','pending_automated_delete')
+  AND jss.added >= DATEADD(day,-30,GETDATE())
+```
+
+**OQ2d — the decisive one: Core V2's own writes, flagged vs not.** Returned 173,776 rows / 754 sites
+/ 1,231 flagged / 172,545 unflagged. Drop the `created_by` predicate for the all-writers figure
+(595,284 / 953 / 36,127 / 559,158).
+
+```sql
+SELECT COUNT(*) AS core_api_rows_30d, SUM(x.has_flag) AS on_flagged,
+       SUM(1-x.has_flag) AS on_unflagged, COUNT(DISTINCT x.site_id) AS distinct_sites
+FROM (
+  SELECT js.site_id,
+    CASE WHEN EXISTS (
+      SELECT 1 FROM [64recs67o].dbo.job_distribution_transmit_site ts WITH(NOLOCK)
+      JOIN [64recs67o].dbo.job_distribution_transmit_site_setting tss WITH(NOLOCK)
+        ON tss.transmit_site_id = ts.transmit_site_id
+      WHERE ts.site_id = js.site_id AND ts.active = 1 AND tss.active = 1
+        AND tss.name = 'requires_pending_delete' AND tss.value = '1'
+    ) THEN 1 ELSE 0 END AS has_flag
+  FROM [64recs67o].dbo.jobs_sites_status jss WITH(NOLOCK)
+  JOIN [64recs67o].dbo.jobs_sites js WITH(NOLOCK) ON js.id = jss.jobs_sites_id
+  WHERE jss.status IN ('pending_delete','pending_automated_delete')
+    AND jss.created_by = 'core_api_posting_stop'
+    AND jss.added >= DATEADD(day,-30,GETDATE())
+) x
+```
+
+**OQ4 — the nine sites, with flag state.** The *How to close them* version plus two columns:
+`flagged` (value `'1'` present) and `has_setting_row` (any `requires_pending_delete` row at all).
+The second column is what proved absence rather than an explicit `'0'`. Swap the `IN` list for
+`s.site_id = 25461` to re-check SEEK — it returned `setting_rows = 0`.
+
+### Tool gotchas
+
+- **CTEs are rejected** — `WITH …` fails the "Only SELECT queries are allowed" guard. Rewrite with
+  `EXISTS` subqueries or a derived table.
+- **`SUM(CASE WHEN EXISTS(...))` is rejected** — "aggregate on an expression containing a subquery".
+  Put the row-level `CASE` in a derived table and aggregate outside it.
+- **Grouping `jobs_sites_status` by `created_by` / `process`** over a 7- or 30-day window **times out
+  at 60s**, with or without the `jobs_sites` join. `SUM(CASE WHEN created_by = …)` over the same
+  window returns in time.
