@@ -14,7 +14,7 @@ updated: 2026-09-18
 # AS-8535 — apply-flow
 
 - **Status:** in progress — Phase 2 started, walking skeleton built (AS-9252)
-- **Ticket:** [[tickets/AS-8535.md]] — *Job Application Re-Architecture - Phase 1*
+- **Ticket:** [[AS-8535]] — *Job Application Re-Architecture - Phase 1*
 - **Grilled:** 2026-09-16 via /grill-me
 - **Last touched:** 2026-09-18
 

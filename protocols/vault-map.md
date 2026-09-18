@@ -6,13 +6,15 @@
 | Folder | Purpose |
 | --- | --- |
 | `/raw` | Inbox. Anything captured: notes, PDFs, screenshots, links. Unprocessed. |
-| `/wiki` | Clean notes **and design docs**. One topic per file, kebab-case. Design docs are named `<KEY>-<slug>.md`. |
+| `/in-progress` | Design docs for work a session is actively on. Foldered `CBS/` and `AS/`. |
+| `/later` | Parked work, waiting on a future session. **Flat.** |
+| `/wiki` | Clean notes and **landed** design docs, foldered `CBS/` and `AS/`. Plus `/wiki/repos/`, outside the lifecycle. One topic per file, kebab-case. |
 | `/archive` | Processed `/raw` files land here. Permanent, immutable record. |
 | `/coding` | Engineering notes and reusable orchestration prompts. Holds `coding/ship/` — the live `/ship` agents, command, and installer — plus `coding/ship-workflow.js`, the Workflow-script variant of the same pipeline. |
 | `/prompts` | Standing prompts run against the vault. Currently empty. |
 | `/protocols` | The rules themselves. One file per topic, each the single source of truth for it. |
 | `/templates` | Obsidian templates for a design doc and a ticket. Set as the Templates plugin folder. |
-| `/tickets` | One file per Jira ticket. |
+| `/tickets` | One file per Jira ticket, foldered `CBS/` and `AS/`. Never moves. |
 | `/skills` | Versioned source of truth for personal Claude Code skills. |
 | `/user-memory` | Template for `~/.claude/CLAUDE.md`, the user-level memory that imports this vault into every repo. |
 
@@ -28,6 +30,7 @@
 
 - Capture lands in `/raw`, unprocessed.
 - Processing turns it into a clean entry in `/wiki`; the original moves to `/archive` so it is visible what has been handled.
+- Design docs move `/in-progress` → `/later` → `/in-progress` → `/wiki` as work is parked and resumed. That lifecycle is [the workflow protocol](workflow.md#where-work-lives) — the only copy.
 - `/archive` is append-only. Nothing is ever edited or removed once it lands.
 
 The rules enforcing this are the Hard Rules in [`CLAUDE.md`](../CLAUDE.md) — the only copy.

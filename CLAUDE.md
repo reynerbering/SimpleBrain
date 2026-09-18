@@ -19,11 +19,12 @@ This file holds **who Neru is, what to do, and the hard rules**. Every protocol 
 
 ## Common Tasks
 
-- **Log ticket work** → create or append to `/tickets/<KEY>.md` per the ticket protocol.
+- **Log ticket work** → create or append to `/tickets/<TEAM>/<KEY>.md` per the ticket protocol.
 - **Coding orchestration** → check `/coding` for an existing prompt or workflow before inventing a new one. If a multi-step coding task recurs, write it down in `/coding` as a reusable prompt.
-- **Think through a ticket or idea** → Phase 1. Run `/grill-me`, `/grill-with-docs`, or `/grilling`, then file the agreed output as a design doc in `/wiki`.
+- **Think through a ticket or idea** → Phase 1. Run `/grill-me`, `/grill-with-docs`, or `/grilling`, then file the agreed output as a design doc in `/in-progress/<TEAM>/`.
 - **Implement a ticket** → Phase 2. Run it through `/ship`, with the design doc as the input. This is the default path for ticket work, not an option.
-- **Answer questions** → read `/wiki`, `/tickets`, and `/archive` to answer ad-hoc questions about past thinking and past work.
+- **Finish something later** → dump the session's decisions into the file, then move it to `/later`. See [the workflow protocol](protocols/workflow.md#parking-work--finish-it-later).
+- **Answer questions** → read `/wiki`, `/in-progress`, `/later`, `/tickets`, and `/archive` to answer ad-hoc questions about past thinking and past work.
 - **Install something** → see [protocols/skills.md](protocols/skills.md).
 
 ---
@@ -76,7 +77,7 @@ These govern the vault itself and do **not** apply inside a code repo. Read them
 
 **Everywhere** — these travel:
 
-5. **Never overwrite** a `/wiki` or `/tickets` entry blindly. Read it first, then merge.
+5. **Never overwrite** a design doc or `/tickets` entry blindly. Read it first, then merge.
 6. **Never invent facts.** When uncertain, log the uncertainty inside the entry rather than guessing. This applies doubly to ticket keys, statuses, dates, and file paths.
 7. **Always run `date`** for the real current date. Never back-fill from memory.
 8. **When a vault rule and a repo's own conventions conflict inside that repo, the repo wins.** Say so rather than silently applying a vault rule out of context.

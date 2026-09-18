@@ -14,7 +14,7 @@ updated: 2026-09-18
 - **Status:** **decided 2026-09-18. Phase 1 is complete and Phase 2 is unblocked.** Q1–Q9 answered,
   GATE 1 passed 20/20 in UAT, GATE 2 cleared, Q3 = seam (i), Q4 = non-fatal. **No `OPEN QUESTION`
   markers remain.** The Planner rider is in the Q3 and Q4 entries: re-throw on a dead transaction.
-- **Ticket:** [[tickets/CBS-4436.md]] — *Discovery: analytics click-to-apply hash missing for postings created via core-api V2 create path — decide whether to add inline wrap*
+- **Ticket:** [[CBS-4436]] — *Discovery: analytics click-to-apply hash missing for postings created via core-api V2 create path — decide whether to add inline wrap*
 - **Jira:** CBS-4436 · Investigation · High · Selected for Development · reporter Shervin Ivari · assignee me
 - **Grilled:** 2026-09-17 via /grilling — **complete**
 - **Last touched:** 2026-09-18

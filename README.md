@@ -8,7 +8,7 @@ A personal second brain: raw capture in, clean notes and shipped tickets out.
 
 | Protocol | Owns | Scope |
 | --- | --- | --- |
-| [workflow.md](protocols/workflow.md) | The two-phase workflow, Phase 1 and Phase 2 steps, **branch and worktree naming**, where each artifact ends up | travels |
+| [workflow.md](protocols/workflow.md) | The two-phase workflow, Phase 1 and Phase 2 steps, **branch and worktree naming**, **where work lives** (`/in-progress` → `/later` → `/wiki`) and the "finish it later" handoff, where each artifact ends up | travels |
 | [design-docs.md](protocols/design-docs.md) | Design doc location, division of labour with tickets, how to write one | travels |
 | [tickets.md](protocols/tickets.md) | Ticket file location, entry shape, sourcing from Jira, pipeline logging | travels |
 | [frontmatter.md](protocols/frontmatter.md) | The property contract and the Bases that consume it | travels |
@@ -26,8 +26,8 @@ A personal second brain: raw capture in, clean notes and shipped tickets out.
 
 | Artifact | Pattern |
 | --- | --- |
-| Design doc | `wiki/<JIRA-KEY>-<slug>.md` |
-| Ticket log | `tickets/<JIRA-KEY>.md` |
+| Design doc | `<JIRA-KEY>-<slug>.md`, in `/in-progress/<TEAM>/`, `/later/` or `/wiki/<TEAM>/` |
+| Ticket log | `tickets/<TEAM>/<JIRA-KEY>.md` |
 | Branch | `<JIRA-KEY>-<slug>` — no `feat/` prefix |
 | Isolated worktree | `<repo-folder>-<JIRA-KEY>`, beside the repo |
 

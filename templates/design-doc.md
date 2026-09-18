@@ -11,11 +11,12 @@ updated: {{date:YYYY-MM-DD}}
 # {{title}}
 
 - **Status:** decided | in progress | implemented | superseded
-- **Ticket:** [[tickets/CBS-1234.md]]
+- **Ticket:** [[CBS-1234]]
 - **Grilled:** {{date:YYYY-MM-DD}} via /grill-me
 - **Last touched:** {{date:YYYY-MM-DD}}
 
 > Frontmatter rules: [[protocols/frontmatter.md]]. How to write this doc: [[protocols/design-docs.md]].
+> Which folder it lives in, and the "finish it later" handoff section: [[protocols/workflow.md]].
 > Delete this blockquote once filled in.
 
 ## Problem

@@ -11,7 +11,7 @@ updated: {{date:YYYY-MM-DD}}
 # {{title}}
 
 - **Status:** <status> (<source: jira | unverified>)
-- **Design:** [[wiki/CBS-1234-slug.md]]
+- **Design:** [[CBS-1234-slug]]
 - **Last touched:** {{date:YYYY-MM-DD}}
 
 > Frontmatter rules: [[protocols/frontmatter.md]]. Jira key rules and entry shape: [[protocols/tickets.md]].

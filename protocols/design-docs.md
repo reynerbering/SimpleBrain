@@ -3,9 +3,12 @@
 > **Single source of truth.** Scope: **travels** — design docs are authored in the vault even when the code work happens in a repo elsewhere.
 > `CLAUDE.md` imports this file. Do not restate any of it there or in `README.md`.
 
-**Location:** `/wiki/<JIRA-KEY>-<slug>.md` — e.g. `wiki/CBS-1234-rate-limiting.md`.
+**Location:** `<KEY>-<slug>.md` — e.g. `CBS-1234-rate-limiting.md`. **Which folder it sits in depends on
+where the work has got to** — `/in-progress/<TEAM>/`, `/later/`, or `/wiki/<TEAM>/`. That lifecycle is
+[the workflow protocol](workflow.md#where-work-lives), the only copy. New docs start in `/in-progress/<TEAM>/`.
 
-- Work that started as a raw idea with no ticket uses a bare kebab-case slug (`wiki/agent-memory-compaction.md`). Rename it through Obsidian once a key exists.
+- Work that started as a raw idea with no ticket uses a bare kebab-case slug (`agent-memory-compaction.md`). Rename it through Obsidian once a key exists.
+- **Link to a design doc by bare name** — `[[CBS-1234-rate-limiting]]`. A path-form link breaks the moment the doc is parked or resumed.
 - One design doc per unit of work. It is **living** — amended after implementation, never superseded by a second file.
 
 **Template:** [`templates/design-doc.md`](../templates/design-doc.md) — the only copy. Never inline a second copy of it anywhere.
@@ -26,7 +29,7 @@
 - Record open questions as `OPEN QUESTION` — the same marker the Planner stops on.
 - Never invent a decision that was not actually reached. An unresolved branch is an open question, not a default.
 
-**Before marking a doc `status: decided`, run `grep -rn "OPEN QUESTION" wiki/`** and clear every marker
+**Before marking a doc `status: decided`, run `grep -rn "OPEN QUESTION" in-progress/ later/ wiki/`** and clear every marker
 that has actually been answered.
 
 - Writing the Decisions section does **not** remove the markers. A doc can end up asserting

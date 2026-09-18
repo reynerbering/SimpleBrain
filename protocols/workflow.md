@@ -7,8 +7,8 @@ All coding work runs in two phases, in order. Never start Phase 2 without a Phas
 
 | Phase      | What happens                                                         | Tool                                         | Output                                       |
 | ---------- | -------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------- |
-| 1 — Decide | Relentless interview until Neru and the agent share an understanding | `/grill-me`, `/grill-with-docs`, `/grilling` | `/wiki/<KEY>-<slug>.md`                      |
-| 2 — Build  | Planner → Coder → Tester → Reviewer                                  | `/ship`                                      | code on a branch + `/tickets/<KEY>.md` entry |
+| 1 — Decide | Relentless interview until Neru and the agent share an understanding | `/grill-me`, `/grill-with-docs`, `/grilling` | `/in-progress/<TEAM>/<KEY>-<slug>.md`        |
+| 2 — Build  | Planner → Coder → Tester → Reviewer                                  | `/ship`                                      | code on a branch + `/tickets/<TEAM>/<KEY>.md` entry |
 
 - **Phase 1 is not optional for non-trivial work.** If asked to implement something with no design doc, say so and offer to grill it first.
 - **Phase 2 reads Phase 1.** Hand the Planner the design doc, not a one-line restatement of the ask.
@@ -36,7 +36,7 @@ The agreed document is the input. Now it gets built.
 2. **Run `/ship`** — the four-agent pipeline. Stages, models, gates, and handoff files are in [`coding/four-agent-pipeline.md`](../coding/four-agent-pipeline.md); `coding/ship-workflow.js` is the Workflow-script variant of the same thing.
 3. **Feed the Planner the design doc**, not a one-line ask. Phase 1 exists so the spec starts from settled decisions.
 4. **Read `.pipeline/review.md` first**, then the diff. The pipeline never merges — Neru is the final gate.
-5. **Fold the outcome back in.** Anything the pipeline changed, flagged, or forced a rethink on goes back into the same wiki doc as a dated revision.
+5. **Fold the outcome back in.** Anything the pipeline changed, flagged, or forced a rethink on goes back into the same design doc as a dated revision.
 
 ## Branch and worktree naming
 
@@ -50,7 +50,7 @@ The single source for how Phase 2 work is named on disk and in git.
 - **No `feat/` prefix.** The key leads. Verified against `CoreAPI`'s live open MRs on 2026-09-18 —
   `CBS-4643-ofccp-getjobs-param-validation`, `CBS-4548-replaceuser-firstordefault`. A branch named
   `feat/CBS-...` does not match what the team does and will not group with the rest.
-- **`<slug>` is the design doc's slug**, so `wiki/<KEY>-<slug>.md`, the branch and the worktree all
+- **`<slug>` is the design doc's slug**, so `<KEY>-<slug>.md`, the branch and the worktree all
   carry the same name. One string to search for across the vault, git and Jira.
 - ⚠️ **Check the repo's real convention before creating the branch** — `git ls-remote --heads origin`,
   or list its open MRs. This protocol travels, but **a repo's own convention outranks it inside that
@@ -79,14 +79,73 @@ committed — on `CoreAPI`, `CoreAPI.TestFramework/CoreApiTestFramework.cs` (`jt
 a documented local setup step that would point CI at localhost. Stage the files the change actually
 touched and check `git status` before committing.
 
+## Where work lives
+
+A design doc moves between three folders over its life. **The folder answers "is anyone on this?"
+The `status` property answers "how far along is it?"** Those are different questions — do not collapse
+one into the other.
+
+| Folder | Holds | Layout |
+| --- | --- | --- |
+| `/in-progress/<TEAM>/` | Work a session is actively on — **both** phases | `CBS/`, `AS/` |
+| `/later/` | Parked. Still live, waiting on a future session | **flat**, no subfolders |
+| `/wiki/<TEAM>/` | Landed — ready to merge, in approval, or merged | `CBS/`, `AS/` |
+
+- **Everything starts in `/in-progress/<TEAM>/`** — a raw idea, a Phase 1 grilling, a Phase 2 pipeline run.
+- **It leaves for `/wiki/<TEAM>/` only when it is ready to merge or being approved.** Not when Phase 1
+  lands, not when `status: decided`. A doc with the whole pipeline still to run is in progress.
+- `/wiki/repos/` is outside this lifecycle — repo memory is never "in progress". See
+  [the repo memory protocol](repo-memory.md).
+- **`/tickets/<TEAM>/<KEY>.md` never moves.** A ticket log is not work-in-flight; it lives in `/tickets`
+  from the first entry to the last. The team folder there is organisation, nothing more.
+
+### Parking work — "finish it later"
+
+When Neru says **finish it later**, the file is not just moved. The session's contents go into it first.
+
+1. **Append a dated handoff section to the bottom of the file.** Never rewrite what is above it.
+2. **Then** move the file to `/later/`, flat.
+3. **`status` does not change.** Parked is a folder, not a status.
+
+The section:
+
+```markdown
+## <YYYY-MM-DD> — parked
+
+**Where it stands:** <current state, one or two lines>
+
+**Decided this session:**
+- <decision> — <the reasoning, in Neru's own words>
+
+**Still open:**
+- OPEN QUESTION: <what is genuinely unresolved>
+
+**Pick up by:** <the literal next action>
+```
+
+- **Every decision and detail the session actually reached goes in.** The whole point is that the next
+  session starts from the settled position instead of re-deriving the conversation. A thin summary
+  defeats it.
+- `OPEN QUESTION` markers carry their usual meaning — [the Planner stops on them](design-docs.md).
+- Run `date` for the heading. Never back-fill it.
+
+### Resuming from `/later/`
+
+- Picking a file up **moves it back to `/in-progress/<TEAM>/` first**, before any work starts. That is
+  what keeps `/later/` an accurate list of what nobody is on.
+- Old handoff sections stay. They are the record of how the work got here.
+
 ## Where things end up
 
 | Artifact | Lives in | Holds |
 | --- | --- | --- |
-| Design doc | `/wiki/<KEY>-<slug>.md` | Every decision + reasoning, before and after implementation |
-| Ticket log | `/tickets/<KEY>.md` | Dated activity: what was done, what was touched, pipeline verdict, blockers |
+| Design doc | `/in-progress/<TEAM>/`, `/later/`, or `/wiki/<TEAM>/` — named `<KEY>-<slug>.md` | Every decision + reasoning, before and after implementation |
+| Ticket log | `/tickets/<TEAM>/<KEY>.md` | Dated activity: what was done, what was touched, pipeline verdict, blockers |
 | Pipeline handoffs | `.pipeline/` in the repo | Scratch. Gitignored. Not a record. |
 
-The wiki doc owns the **decisions**. The ticket owns the **log**. They link to each other and neither repeats the other.
+The design doc owns the **decisions**. The ticket owns the **log**. They link to each other and neither repeats the other.
+
+**Link by bare name — `[[CBS-1234-rate-limiting]]`, not `[[wiki/CBS-1234-rate-limiting.md]]`.** Design
+docs move folders every time work is parked or resumed, so a path-form link is broken by design.
 
 **Ticket and design-doc files always live in the vault**, even when the code work happens in a repo elsewhere. Never scatter them into the repo being worked on.

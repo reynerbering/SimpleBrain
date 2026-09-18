@@ -31,4 +31,4 @@ Execute in order. Do not skip ahead. After each stage, confirm the handoff file 
 
 ## After the run
 
-If the request names a Jira key, remind me to log the run in `tickets/<KEY>.md` in the SimpleBrain vault — verdict, what the reviewer flagged, and any gate that tripped.
+If the request names a Jira key, remind me to log the run in `tickets/<TEAM>/<KEY>.md` in the SimpleBrain vault — verdict, what the reviewer flagged, and any gate that tripped.

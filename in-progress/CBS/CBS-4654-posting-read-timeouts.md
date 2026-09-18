@@ -11,7 +11,7 @@ updated: 2026-09-17
 # CBS-4654 — Posting read timeouts
 
 - **Status:** in progress — raw dump, not yet grilled
-- **Ticket:** [[tickets/CBS-4654.md]] — *file does not exist yet; Jira title/status unverified (Atlassian + GitLab MCP both failed to connect 2026-09-17)*
+- **Ticket:** [[CBS-4654]] — *file does not exist yet; Jira title/status unverified (Atlassian + GitLab MCP both failed to connect 2026-09-17)*
 - **Grilled:** not yet — no Phase 1 session has been run. `grilled:` deliberately omitted from frontmatter rather than back-filled.
 - **Last touched:** 2026-09-17
 

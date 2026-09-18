@@ -3,7 +3,7 @@
 > **Single source of truth.** Scope: **travels** — ticket files live in the vault even when the code work happens in a repo elsewhere.
 > `CLAUDE.md` imports this file. Do not restate any of it there or in `README.md`.
 
-**Location:** `/tickets/<JIRA-KEY>.md` — one file per ticket, named by key (e.g. `CBS-1234.md`). A ticket accumulates dated entries over its life; never split one ticket across multiple files.
+**Location:** `/tickets/<TEAM>/<JIRA-KEY>.md` — one file per ticket, named by key (e.g. `tickets/CBS/CBS-1234.md`). `<TEAM>` is `CBS` or `AS`. A ticket accumulates dated entries over its life; never split one ticket across multiple files.
 
 **Template:** [`templates/ticket.md`](../templates/ticket.md) — the only copy. Never inline a second copy of it anywhere.
 
@@ -12,7 +12,7 @@
 ## Every ticket file carries
 
 - Jira key, ticket title, current status
-- A link to its design doc in `/wiki` — see [the design doc protocol](design-docs.md)
+- A link to its design doc, **by bare name** (`[[CBS-1234-rate-limiting]]`) — see [the design doc protocol](design-docs.md). The doc moves folders over its life; the ticket does not.
 - A dated log — one dated section per working session, newest at the bottom
 
 ## Every dated entry captures
